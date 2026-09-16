@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaterlooWorks JSON Exporter</title>
+  <style>
+    :root {
+      --bg: #f3f6f8;
+      --card: #ffffff;
+      --text: #14212b;
+      --muted: #5f6f7d;
+      --accent: #0a7f5a;
+      --accent-dark: #086347;
+      --danger: #b42318;
+      --border: #d9e2e8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      min-width: 360px;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #eef4f7 0%, #f8fbfc 100%);
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(20, 33, 43, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+
+    p {
+      margin: 0 0 14px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--accent-dark);
+    }
+
+    button:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    .export-options {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .export-options h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .export-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      margin: 9px 0;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .export-option input {
+      width: 16px;
+      height: 16px;
+      margin: 2px 0 0;
+      accent-color: var(--accent);
+    }
+
+    .export-option span {
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .status {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.4;
+      background: #eef7f2;
+      color: var(--accent-dark);
+    }
+
+    .status.error {
+      background: #fff1ef;
+      color: var(--danger);
+    }
+
+    .hint {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Export Jobs to JSON</h1>
+    <p>
+      Keep your current WaterlooWorks filter as-is, then export every result page into one local JSON file.
+    </p>
+    <button id="exportJobsBtn">Download Current Filter as JSON</button>
+    <section class="export-options" aria-labelledby="exportOptionsTitle">
+      <h2 id="exportOptionsTitle">Include in JSON</h2>
+      <label class="export-option">
+        <input id="includeBasicInfo" type="checkbox" checked>
+        <span>Basic job information</span>
+      </label>
+      <label class="export-option">
+        <input id="includeCurrentPageOnly" type="checkbox">
+        <span>Export jobs from the current page only</span>
+      </label>
+      <label class="export-option">
+        <input id="includeHiresByFaculty" type="checkbox" checked>
+        <span>Hiring history: hires by faculty</span>
+      </label>
+      <label class="export-option">
+        <input id="includeHiresByWorkTerm" type="checkbox" checked>
+        <span>Hiring history: hires by student work-term number</span>
+      </label>
+      <label class="export-option">
+        <input id="includeFrequentlyHiredPrograms" type="checkbox" checked>
+        <span>Hiring history: most frequently hired programs</span>
+      </label>
+      <label class="export-option">
+        <input id="includeSpecialRequirements" type="checkbox" checked>
+        <span>Special job requirements</span>
+      </label>
+      <label class="export-option">
+        <input id="includeRequiredSkills" type="checkbox" checked>
+        <span>Required skills</span>
+      </label>
+      <label class="export-option">
+        <input id="includeJobResponsibilities" type="checkbox" checked>
+        <span>Job responsibilities</span>
+      </label>
+      <label class="export-option">
+        <input id="includeJobSummary" type="checkbox" checked>
+        <span>Job summary</span>
+      </label>
+    </section>
+    <div id="exportStatus" class="status"></div>
+    <div class="hint">
+      Make sure a WaterlooWorks jobs page is open and your desired filter is already selected before exporting.
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "WaterlooWorks JSON Exporter",
+  "version": "1.0.0",
+  "description": "Export the current WaterlooWorks job filter to a local JSON file.",
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://waterlooworks.uwaterloo.ca/*"
+  ],
+  "action": {
+    "default_title": "WaterlooWorks JSON Exporter",
+    "default_popup": "options.html"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://waterlooworks.uwaterloo.ca/*"
+      ],
+      "js": [
+        "content_helpers/bootstrapContent.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

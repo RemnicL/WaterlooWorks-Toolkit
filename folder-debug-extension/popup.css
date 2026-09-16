@@ -1,0 +1,97 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 360px;
+  background: #f5f7fa;
+  color: #17202a;
+}
+
+main {
+  padding: 16px;
+}
+
+h1 {
+  margin: 0 0 14px;
+  font-size: 19px;
+}
+
+h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+section {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  background: white;
+}
+
+label {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+button {
+  box-sizing: border-box;
+  width: 100%;
+  font: inherit;
+}
+
+input[type="file"] {
+  padding: 8px;
+  border: 1px solid #aeb8c4;
+  border-radius: 5px;
+  background: white;
+}
+
+button {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: #1261a0;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+button.danger {
+  background: #a61b1b;
+}
+
+p {
+  margin: 0;
+  color: #526170;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+pre {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.error {
+  color: #a61b1b;
+}
+
+.success {
+  color: #176b35;
+}

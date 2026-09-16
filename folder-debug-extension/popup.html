@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WaterlooWorks Folder Importer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>Folder Importer</h1>
+
+    <section>
+      <h2>选择分类 JSON</h2>
+      <p>文件夹名称必须与 WaterlooWorks 中的名称完全一致。</p>
+      <label for="planFile">JSON 文件</label>
+      <input id="planFile" type="file" accept=".json,application/json">
+      <button id="runButton" type="button" disabled>读取映射并放入文件夹</button>
+      <button id="removeButton" class="danger" type="button" disabled>将所有工作移出当前文件夹</button>
+    </section>
+
+    <section>
+      <h2>计划与结果</h2>
+      <pre id="output">等待操作。</pre>
+    </section>
+  </main>
+
+  <script src="folder-plan.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

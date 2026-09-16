@@ -1,0 +1,102 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #17202a;
+  background: #f3f5f7;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.panel {
+  width: min(620px, 100%);
+  background: #fff;
+  border: 1px solid #dce2e7;
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 14px 36px rgb(32 45 56 / 9%);
+}
+
+h1, h2, p { margin-top: 0; }
+h1 { margin-bottom: 8px; font-size: 1.8rem; }
+h2 { font-size: 1.1rem; }
+header > p:not(.eyebrow), .future-note { color: #5d6973; }
+.section-description { color: #5d6973; font-size: .9rem; }
+code { color: #39434b; }
+
+.eyebrow {
+  margin-bottom: 6px;
+  color: #087655;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.tool {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid #e3e7ea;
+}
+
+.file-picker, .field {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+
+input[type="file"], input[type="number"] {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #bdc7ce;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.summary div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f8f7;
+}
+
+dt { color: #65717b; font-size: .78rem; }
+dd { margin: 5px 0 0; overflow-wrap: anywhere; font-weight: 700; }
+
+button {
+  width: 100%;
+  margin-top: 18px;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #087655;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled { opacity: .45; cursor: not-allowed; }
+.status { min-height: 1.5em; margin: 12px 0 0; color: #087655; }
+.status.error { color: #b42318; }
+.future-note { margin: 22px 0 0; font-size: .85rem; }
+
+@media (max-width: 520px) {
+  .panel { padding: 20px; }
+  .summary { grid-template-columns: 1fr; }
+}

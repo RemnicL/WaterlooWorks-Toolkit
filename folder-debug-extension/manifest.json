@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "WaterlooWorks Folder Importer",
+  "version": "0.3.0",
+  "description": "Assign WaterlooWorks postings to existing folders from a JSON file.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://waterlooworks.uwaterloo.ca/*"
+  ],
+  "action": {
+    "default_title": "WaterlooWorks Folder Importer",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://waterlooworks.uwaterloo.ca/*"
+      ],
+      "js": [
+        "folder-plan.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
