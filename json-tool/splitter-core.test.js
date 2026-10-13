@@ -1,6 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { splitExportData, mergeExportData, validateExport, partFilename } = require("./splitter-core.js");
+const {
+  splitExportData,
+  mergeExportData,
+  deleteMatchingJobs,
+  validateExport,
+  partFilename
+} = require("./splitter-core.js");
 
 test("splits jobs and aligned posting IDs while preserving metadata", () => {
   const input = {
@@ -63,6 +69,48 @@ test("rejects files whose ID list cannot be aligned with jobs", () => {
       { posting_ids: [1], jobs: [{}, {}] },
       { posting_ids: [2], jobs: [{}] }
     ]),
+    /数量不一致/
+  );
+});
+
+test("deletes case-insensitive text matches and keeps IDs aligned", () => {
+  const input = {
+    source: "test",
+    total_jobs: 3,
+    posting_ids: [101, 102, 103],
+    jobs: [
+      { title: "Developer", city: "Toronto" },
+      { title: "Designer", city: "Waterloo" },
+      { title: "Developer", city: "Vancouver" }
+    ]
+  };
+
+  const result = deleteMatchingJobs(input, "title", "developer");
+
+  assert.equal(result.deletedCount, 2);
+  assert.equal(result.data.total_jobs, 1);
+  assert.deepEqual(result.data.posting_ids, [102]);
+  assert.deepEqual(result.data.jobs, [{ title: "Designer", city: "Waterloo" }]);
+  assert.equal(result.data.source, "test");
+});
+
+test("searches nested job content and posting IDs when using all fields", () => {
+  const input = {
+    posting_ids: [101, 202],
+    jobs: [
+      { title: "Developer", details: { skills: ["JavaScript"] } },
+      { title: "Designer", details: { skills: ["Figma"] } }
+    ]
+  };
+
+  assert.equal(deleteMatchingJobs(input, "all", "javascript").deletedCount, 1);
+  assert.equal(deleteMatchingJobs(input, "all", "202").deletedCount, 1);
+});
+
+test("rejects empty searches and unaligned ID lists during deletion", () => {
+  assert.throws(() => deleteMatchingJobs({ jobs: [] }, "all", "  "), /请输入/);
+  assert.throws(
+    () => deleteMatchingJobs({ posting_ids: [1], jobs: [{}, {}] }, "all", "x"),
     /数量不一致/
   );
 });

@@ -52,13 +52,20 @@ code { color: #39434b; }
   font-weight: 600;
 }
 
-input[type="file"], input[type="number"] {
+input[type="file"], input[type="number"], input[type="text"], select {
   width: 100%;
   padding: 10px;
   border: 1px solid #bdc7ce;
   border-radius: 8px;
   background: #fff;
   font: inherit;
+}
+
+.rule-fields {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .summary {
@@ -99,4 +106,5 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 @media (max-width: 520px) {
   .panel { padding: 20px; }
   .summary { grid-template-columns: 1fr; }
+  .rule-fields { grid-template-columns: 1fr; }
 }

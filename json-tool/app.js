@@ -15,8 +15,18 @@
   const mergeInputCount = document.getElementById("merge-input-count");
   const mergeOutputCount = document.getElementById("merge-output-count");
   const mergeStatus = document.getElementById("merge-status");
+  const deleteFileInput = document.getElementById("delete-file");
+  const deleteFieldInput = document.getElementById("delete-field");
+  const deleteQueryInput = document.getElementById("delete-query");
+  const deleteButton = document.getElementById("delete-button");
+  const deleteInputCount = document.getElementById("delete-input-count");
+  const deleteMatchCount = document.getElementById("delete-match-count");
+  const deleteOutputCount = document.getElementById("delete-output-count");
+  const deleteStatus = document.getElementById("delete-status");
   let loaded = null;
   let merged = null;
+  let deleteLoaded = null;
+  let deleteResult = null;
 
   function setStatus(message, isError) {
     status.textContent = message;
@@ -57,6 +67,38 @@
   function setMergeStatus(message, isError) {
     mergeStatus.textContent = message;
     mergeStatus.classList.toggle("error", Boolean(isError));
+  }
+
+  function setDeleteStatus(message, isError) {
+    deleteStatus.textContent = message;
+    deleteStatus.classList.toggle("error", Boolean(isError));
+  }
+
+  function updateDeletePreview() {
+    deleteResult = null;
+    deleteButton.disabled = true;
+    deleteMatchCount.textContent = "—";
+    deleteOutputCount.textContent = "—";
+    if (!deleteLoaded) return;
+
+    const query = deleteQueryInput.value.trim();
+    if (!query) {
+      setDeleteStatus("输入文本后将显示匹配数量。");
+      return;
+    }
+
+    try {
+      deleteResult = core.deleteMatchingJobs(deleteLoaded.data, deleteFieldInput.value, query);
+      deleteMatchCount.textContent = String(deleteResult.deletedCount);
+      deleteOutputCount.textContent = String(deleteResult.data.jobs.length);
+      deleteButton.disabled = deleteResult.deletedCount === 0;
+      setDeleteStatus(deleteResult.deletedCount
+        ? `找到 ${deleteResult.deletedCount} 个匹配项。`
+        : "没有找到匹配项。"
+      );
+    } catch (error) {
+      setDeleteStatus(`无法筛选：${error.message}`, true);
+    }
   }
 
   fileInput.addEventListener("change", async () => {
@@ -134,5 +176,37 @@
     if (!merged) return;
     downloadJson(merged.data, "waterlooworks_jobs_merged.json");
     setMergeStatus(`已下载 ${merged.data.jobs.length} 个工作的合并文件。`);
+  });
+
+  deleteFileInput.addEventListener("change", async () => {
+    deleteLoaded = null;
+    deleteResult = null;
+    deleteButton.disabled = true;
+    deleteInputCount.textContent = "—";
+    deleteMatchCount.textContent = "—";
+    deleteOutputCount.textContent = "—";
+    setDeleteStatus("");
+
+    const file = deleteFileInput.files && deleteFileInput.files[0];
+    if (!file) return;
+
+    try {
+      const data = core.validateExport(JSON.parse(await file.text()));
+      deleteLoaded = { data, name: file.name };
+      deleteInputCount.textContent = String(data.jobs.length);
+      updateDeletePreview();
+    } catch (error) {
+      setDeleteStatus(`无法读取文件：${error.message}`, true);
+    }
+  });
+
+  deleteFieldInput.addEventListener("change", updateDeletePreview);
+  deleteQueryInput.addEventListener("input", updateDeletePreview);
+
+  deleteButton.addEventListener("click", () => {
+    if (!deleteLoaded || !deleteResult) return;
+    const baseName = deleteLoaded.name.replace(/\.json$/i, "");
+    downloadJson(deleteResult.data, `${baseName}_filtered.json`);
+    setDeleteStatus(`已删除 ${deleteResult.deletedCount} 个匹配项并下载新文件。`);
   });
 })();

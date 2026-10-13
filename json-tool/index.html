@@ -63,7 +63,42 @@
       <p id="merge-status" class="status" role="status"></p>
     </section>
 
-    <p class="future-note">后续功能（按规则筛选与批量删除）将复用同一套 JSON 校验与数据处理模块。</p>
+    <section class="tool" aria-labelledby="delete-title">
+      <h2 id="delete-title">筛选并批量删除</h2>
+      <p class="section-description">查找包含指定文本的工作，并下载删除这些工作后的新文件。搜索不区分大小写。</p>
+      <label class="file-picker">
+        <span>JSON 文件</span>
+        <input id="delete-file" type="file" accept="application/json,.json">
+      </label>
+
+      <div class="rule-fields">
+        <label class="field">
+          <span>查找范围</span>
+          <select id="delete-field">
+            <option value="all">全部工作内容</option>
+            <option value="posting_id">工作 ID</option>
+            <option value="title">职位名称</option>
+            <option value="organization">公司名称</option>
+            <option value="division">部门</option>
+            <option value="city">城市</option>
+            <option value="raw_text">原始文本</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>要查找的文本</span>
+          <input id="delete-query" type="text" placeholder="例如：Toronto">
+        </label>
+      </div>
+
+      <dl class="summary" aria-live="polite">
+        <div><dt>原工作数量</dt><dd id="delete-input-count">—</dd></div>
+        <div><dt>将删除</dt><dd id="delete-match-count">—</dd></div>
+        <div><dt>删除后剩余</dt><dd id="delete-output-count">—</dd></div>
+      </dl>
+
+      <button id="delete-button" type="button" disabled>删除匹配项并下载</button>
+      <p id="delete-status" class="status" role="status"></p>
+    </section>
   </main>
 
   <script src="splitter-core.js"></script>

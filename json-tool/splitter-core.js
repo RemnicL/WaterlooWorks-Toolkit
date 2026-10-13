@@ -102,11 +102,64 @@
     };
   }
 
+  function deleteMatchingJobs(input, field, query) {
+    const source = validateExport(input);
+    const searchField = String(field || "all");
+    const searchText = String(query || "").trim().toLocaleLowerCase();
+    if (!searchText) {
+      throw new RangeError("请输入要查找的文本。");
+    }
+    if (Array.isArray(source.posting_ids) && source.posting_ids.length !== source.jobs.length) {
+      throw new RangeError("posting_ids 与 jobs 数量不一致，无法安全删除条目。");
+    }
+
+    const hasAlignedIds = Array.isArray(source.posting_ids);
+    const keptJobs = [];
+    const keptIds = [];
+    let deletedCount = 0;
+
+    source.jobs.forEach((job, index) => {
+      const postingId = hasAlignedIds ? source.posting_ids[index] : job?.posting_id;
+      const value = searchField === "all"
+        ? `${postingId ?? ""} ${JSON.stringify(job)}`
+        : searchField === "posting_id"
+          ? postingId
+          : job?.[searchField];
+      const matches = String(value ?? "").toLocaleLowerCase().includes(searchText);
+
+      if (matches) {
+        deletedCount += 1;
+        return;
+      }
+      keptJobs.push(job);
+      if (postingId !== undefined && postingId !== null && String(postingId).trim() !== "") {
+        keptIds.push(postingId);
+      }
+    });
+
+    return {
+      data: {
+        ...source,
+        total_jobs: keptJobs.length,
+        posting_ids: keptIds,
+        jobs: keptJobs
+      },
+      deletedCount
+    };
+  }
+
   function partFilename(originalName, partIndex, partCount) {
     const base = String(originalName || "waterlooworks_jobs.json").replace(/\.json$/i, "");
     const width = Math.max(2, String(partCount).length);
     return `${base}_part_${String(partIndex + 1).padStart(width, "0")}_of_${String(partCount).padStart(width, "0")}.json`;
   }
 
-  return { validateExport, normalizeChunkSize, splitExportData, mergeExportData, partFilename };
+  return {
+    validateExport,
+    normalizeChunkSize,
+    splitExportData,
+    mergeExportData,
+    deleteMatchingJobs,
+    partFilename
+  };
 });
