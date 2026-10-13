@@ -99,6 +99,31 @@
       <button id="delete-button" type="button" disabled>删除匹配项并下载</button>
       <p id="delete-status" class="status" role="status"></p>
     </section>
+
+    <section class="tool" aria-labelledby="compare-title">
+      <h2 id="compare-title">比较两个文件并删除重复项</h2>
+      <p class="section-description">以第一个文件为基准，删除第二个文件中工作 ID 已存在于第一个文件的条目。</p>
+      <div class="rule-fields">
+        <label class="file-picker">
+          <span>1. 基准文件（保留不变）</span>
+          <input id="compare-reference-file" type="file" accept="application/json,.json">
+        </label>
+        <label class="file-picker">
+          <span>2. 待清理文件（生成结果）</span>
+          <input id="compare-target-file" type="file" accept="application/json,.json">
+        </label>
+      </div>
+
+      <dl class="summary four" aria-live="polite">
+        <div><dt>基准文件工作</dt><dd id="compare-reference-count">—</dd></div>
+        <div><dt>待清理工作</dt><dd id="compare-target-count">—</dd></div>
+        <div><dt>重复工作</dt><dd id="compare-duplicate-count">—</dd></div>
+        <div><dt>清理后剩余</dt><dd id="compare-output-count">—</dd></div>
+      </dl>
+
+      <button id="compare-button" type="button" disabled>删除重复项并下载</button>
+      <p id="compare-status" class="status" role="status"></p>
+    </section>
   </main>
 
   <script src="splitter-core.js"></script>

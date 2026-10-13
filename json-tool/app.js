@@ -23,10 +23,20 @@
   const deleteMatchCount = document.getElementById("delete-match-count");
   const deleteOutputCount = document.getElementById("delete-output-count");
   const deleteStatus = document.getElementById("delete-status");
+  const compareReferenceFileInput = document.getElementById("compare-reference-file");
+  const compareTargetFileInput = document.getElementById("compare-target-file");
+  const compareButton = document.getElementById("compare-button");
+  const compareReferenceCount = document.getElementById("compare-reference-count");
+  const compareTargetCount = document.getElementById("compare-target-count");
+  const compareDuplicateCount = document.getElementById("compare-duplicate-count");
+  const compareOutputCount = document.getElementById("compare-output-count");
+  const compareStatus = document.getElementById("compare-status");
   let loaded = null;
   let merged = null;
   let deleteLoaded = null;
   let deleteResult = null;
+  let compareResult = null;
+  let compareTargetName = "";
 
   function setStatus(message, isError) {
     status.textContent = message;
@@ -98,6 +108,49 @@
       );
     } catch (error) {
       setDeleteStatus(`无法筛选：${error.message}`, true);
+    }
+  }
+
+  function setCompareStatus(message, isError) {
+    compareStatus.textContent = message;
+    compareStatus.classList.toggle("error", Boolean(isError));
+  }
+
+  async function updateComparisonPreview() {
+    compareResult = null;
+    compareTargetName = "";
+    compareButton.disabled = true;
+    compareReferenceCount.textContent = "—";
+    compareTargetCount.textContent = "—";
+    compareDuplicateCount.textContent = "—";
+    compareOutputCount.textContent = "—";
+    setCompareStatus("");
+
+    const referenceFile = compareReferenceFileInput.files?.[0];
+    const targetFile = compareTargetFileInput.files?.[0];
+    if (!referenceFile || !targetFile) {
+      setCompareStatus("请选择基准文件和待清理文件。");
+      return;
+    }
+
+    try {
+      const [reference, target] = await Promise.all([
+        referenceFile.text().then((text) => core.validateExport(JSON.parse(text))),
+        targetFile.text().then((text) => core.validateExport(JSON.parse(text)))
+      ]);
+      compareReferenceCount.textContent = String(reference.jobs.length);
+      compareTargetCount.textContent = String(target.jobs.length);
+      compareResult = core.removeJobsFoundInReference(reference, target);
+      compareTargetName = targetFile.name;
+      compareDuplicateCount.textContent = String(compareResult.duplicateCount);
+      compareOutputCount.textContent = String(compareResult.data.jobs.length);
+      compareButton.disabled = compareResult.duplicateCount === 0;
+      setCompareStatus(compareResult.duplicateCount
+        ? `找到 ${compareResult.duplicateCount} 个重复工作。`
+        : "两个文件之间没有重复工作。"
+      );
+    } catch (error) {
+      setCompareStatus(`无法比较：${error.message}`, true);
     }
   }
 
@@ -208,5 +261,15 @@
     const baseName = deleteLoaded.name.replace(/\.json$/i, "");
     downloadJson(deleteResult.data, `${baseName}_filtered.json`);
     setDeleteStatus(`已删除 ${deleteResult.deletedCount} 个匹配项并下载新文件。`);
+  });
+
+  compareReferenceFileInput.addEventListener("change", updateComparisonPreview);
+  compareTargetFileInput.addEventListener("change", updateComparisonPreview);
+
+  compareButton.addEventListener("click", () => {
+    if (!compareResult) return;
+    const baseName = compareTargetName.replace(/\.json$/i, "");
+    downloadJson(compareResult.data, `${baseName}_deduplicated.json`);
+    setCompareStatus(`已删除 ${compareResult.duplicateCount} 个重复工作并下载新文件。`);
   });
 })();

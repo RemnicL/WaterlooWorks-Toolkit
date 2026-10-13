@@ -4,6 +4,7 @@ const {
   splitExportData,
   mergeExportData,
   deleteMatchingJobs,
+  removeJobsFoundInReference,
   validateExport,
   partFilename
 } = require("./splitter-core.js");
@@ -112,5 +113,40 @@ test("rejects empty searches and unaligned ID lists during deletion", () => {
   assert.throws(
     () => deleteMatchingJobs({ posting_ids: [1], jobs: [{}, {}] }, "all", "x"),
     /数量不一致/
+  );
+});
+
+test("removes target jobs whose IDs exist in a reference file", () => {
+  const reference = {
+    posting_ids: [101, "102"],
+    jobs: [{ title: "Old A" }, { title: "Old B" }]
+  };
+  const target = {
+    source: "target",
+    total_jobs: 3,
+    posting_ids: [102, 103, 104],
+    jobs: [{ title: "New B" }, { title: "C" }, { title: "D" }]
+  };
+
+  const result = removeJobsFoundInReference(reference, target);
+
+  assert.equal(result.duplicateCount, 1);
+  assert.equal(result.data.total_jobs, 2);
+  assert.deepEqual(result.data.posting_ids, [103, 104]);
+  assert.deepEqual(result.data.jobs, [{ title: "C" }, { title: "D" }]);
+  assert.equal(result.data.source, "target");
+});
+
+test("rejects comparison files with missing or unaligned ID lists", () => {
+  assert.throws(
+    () => removeJobsFoundInReference({ jobs: [{}] }, { posting_ids: [2], jobs: [{}] }),
+    /基准文件缺少/
+  );
+  assert.throws(
+    () => removeJobsFoundInReference(
+      { posting_ids: [1], jobs: [{}] },
+      { posting_ids: [2], jobs: [{}, {}] }
+    ),
+    /待清理文件.*数量不一致/
   );
 });

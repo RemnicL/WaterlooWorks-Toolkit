@@ -75,6 +75,8 @@ input[type="file"], input[type="number"], input[type="text"], select {
   margin: 18px 0;
 }
 
+.summary.four { grid-template-columns: repeat(4, 1fr); }
+
 .summary div {
   min-width: 0;
   padding: 12px;
@@ -106,5 +108,6 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 @media (max-width: 520px) {
   .panel { padding: 20px; }
   .summary { grid-template-columns: 1fr; }
+  .summary.four { grid-template-columns: 1fr; }
   .rule-fields { grid-template-columns: 1fr; }
 }

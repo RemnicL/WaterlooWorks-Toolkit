@@ -148,6 +148,48 @@
     };
   }
 
+  function removeJobsFoundInReference(referenceInput, targetInput) {
+    const reference = validateExport(referenceInput);
+    const target = validateExport(targetInput);
+
+    [reference, target].forEach((source, index) => {
+      const label = index === 0 ? "基准文件" : "待清理文件";
+      if (!Array.isArray(source.posting_ids)) {
+        throw new TypeError(`${label}缺少 posting_ids 数组。`);
+      }
+      if (source.posting_ids.length !== source.jobs.length) {
+        throw new RangeError(`${label}的 posting_ids 与 jobs 数量不一致。`);
+      }
+      if (source.posting_ids.some((id) => !String(id ?? "").trim())) {
+        throw new TypeError(`${label}包含空的工作 ID。`);
+      }
+    });
+
+    const referenceIds = new Set(reference.posting_ids.map((id) => String(id).trim()));
+    const keptIds = [];
+    const keptJobs = [];
+    let duplicateCount = 0;
+
+    target.posting_ids.forEach((id, index) => {
+      if (referenceIds.has(String(id).trim())) {
+        duplicateCount += 1;
+        return;
+      }
+      keptIds.push(id);
+      keptJobs.push(target.jobs[index]);
+    });
+
+    return {
+      data: {
+        ...target,
+        total_jobs: keptJobs.length,
+        posting_ids: keptIds,
+        jobs: keptJobs
+      },
+      duplicateCount
+    };
+  }
+
   function partFilename(originalName, partIndex, partCount) {
     const base = String(originalName || "waterlooworks_jobs.json").replace(/\.json$/i, "");
     const width = Math.max(2, String(partCount).length);
@@ -160,6 +202,7 @@
     splitExportData,
     mergeExportData,
     deleteMatchingJobs,
+    removeJobsFoundInReference,
     partFilename
   };
 });
