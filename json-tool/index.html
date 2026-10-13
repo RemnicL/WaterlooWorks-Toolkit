@@ -124,6 +124,28 @@
       <button id="compare-button" type="button" disabled>删除重复项并下载</button>
       <p id="compare-status" class="status" role="status"></p>
     </section>
+
+    <section class="tool" aria-labelledby="keep-title">
+      <h2 id="keep-title">只保留指定 ID</h2>
+      <p class="section-description">输入需要保留的工作 ID；可用逗号、空格或换行分隔。</p>
+      <label class="file-picker">
+        <span>JSON 文件</span>
+        <input id="keep-file" type="file" accept="application/json,.json">
+      </label>
+      <label class="field text-area-field">
+        <span>要保留的工作 ID</span>
+        <textarea id="keep-ids" rows="5" placeholder="例如：&#10;123456&#10;123457&#10;123458"></textarea>
+      </label>
+
+      <dl class="summary" aria-live="polite">
+        <div><dt>原工作数量</dt><dd id="keep-input-count">—</dd></div>
+        <div><dt>输入的不同 ID</dt><dd id="keep-requested-count">—</dd></div>
+        <div><dt>匹配并保留</dt><dd id="keep-output-count">—</dd></div>
+      </dl>
+
+      <button id="keep-button" type="button" disabled>只保留指定 ID 并下载</button>
+      <p id="keep-status" class="status" role="status"></p>
+    </section>
   </main>
 
   <script src="splitter-core.js"></script>

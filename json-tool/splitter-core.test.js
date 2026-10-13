@@ -5,6 +5,7 @@ const {
   mergeExportData,
   deleteMatchingJobs,
   removeJobsFoundInReference,
+  keepJobsByIds,
   validateExport,
   partFilename
 } = require("./splitter-core.js");
@@ -148,5 +149,35 @@ test("rejects comparison files with missing or unaligned ID lists", () => {
       { posting_ids: [2], jobs: [{}, {}] }
     ),
     /待清理文件.*数量不一致/
+  );
+});
+
+test("keeps only requested IDs in the source file order", () => {
+  const input = {
+    source: "test",
+    total_jobs: 4,
+    posting_ids: [101, 102, 103, 104],
+    jobs: [{ title: "A" }, { title: "B" }, { title: "C" }, { title: "D" }]
+  };
+
+  const result = keepJobsByIds(input, "104, 102\n999 102");
+
+  assert.equal(result.requestedCount, 3);
+  assert.equal(result.matchedCount, 2);
+  assert.deepEqual(result.missingIds, ["999"]);
+  assert.deepEqual(result.data.posting_ids, [102, 104]);
+  assert.deepEqual(result.data.jobs, [{ title: "B" }, { title: "D" }]);
+  assert.equal(result.data.total_jobs, 2);
+  assert.equal(result.data.source, "test");
+});
+
+test("accepts numeric requested IDs and rejects unsafe inputs", () => {
+  const input = { posting_ids: [101], jobs: [{ title: "A" }] };
+  assert.equal(keepJobsByIds(input, [101]).matchedCount, 1);
+  assert.throws(() => keepJobsByIds(input, "  "), /至少输入一个/);
+  assert.throws(() => keepJobsByIds({ jobs: [{}] }, "101"), /缺少 posting_ids/);
+  assert.throws(
+    () => keepJobsByIds({ posting_ids: [101], jobs: [{}, {}] }, "101"),
+    /数量不一致/
   );
 });

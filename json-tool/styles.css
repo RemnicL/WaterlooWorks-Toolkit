@@ -52,7 +52,7 @@ code { color: #39434b; }
   font-weight: 600;
 }
 
-input[type="file"], input[type="number"], input[type="text"], select {
+input[type="file"], input[type="number"], input[type="text"], select, textarea {
   width: 100%;
   padding: 10px;
   border: 1px solid #bdc7ce;
@@ -60,6 +60,9 @@ input[type="file"], input[type="number"], input[type="text"], select {
   background: #fff;
   font: inherit;
 }
+
+textarea { resize: vertical; }
+.text-area-field { margin-top: 18px; }
 
 .rule-fields {
   display: grid;

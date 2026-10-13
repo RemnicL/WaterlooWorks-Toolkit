@@ -31,12 +31,21 @@
   const compareDuplicateCount = document.getElementById("compare-duplicate-count");
   const compareOutputCount = document.getElementById("compare-output-count");
   const compareStatus = document.getElementById("compare-status");
+  const keepFileInput = document.getElementById("keep-file");
+  const keepIdsInput = document.getElementById("keep-ids");
+  const keepButton = document.getElementById("keep-button");
+  const keepInputCount = document.getElementById("keep-input-count");
+  const keepRequestedCount = document.getElementById("keep-requested-count");
+  const keepOutputCount = document.getElementById("keep-output-count");
+  const keepStatus = document.getElementById("keep-status");
   let loaded = null;
   let merged = null;
   let deleteLoaded = null;
   let deleteResult = null;
   let compareResult = null;
   let compareTargetName = "";
+  let keepLoaded = null;
+  let keepResult = null;
 
   function setStatus(message, isError) {
     status.textContent = message;
@@ -151,6 +160,37 @@
       );
     } catch (error) {
       setCompareStatus(`无法比较：${error.message}`, true);
+    }
+  }
+
+  function setKeepStatus(message, isError) {
+    keepStatus.textContent = message;
+    keepStatus.classList.toggle("error", Boolean(isError));
+  }
+
+  function updateKeepPreview() {
+    keepResult = null;
+    keepButton.disabled = true;
+    keepRequestedCount.textContent = "—";
+    keepOutputCount.textContent = "—";
+    if (!keepLoaded) return;
+
+    if (!keepIdsInput.value.trim()) {
+      setKeepStatus("输入工作 ID 后将显示匹配数量。");
+      return;
+    }
+
+    try {
+      keepResult = core.keepJobsByIds(keepLoaded.data, keepIdsInput.value);
+      keepRequestedCount.textContent = String(keepResult.requestedCount);
+      keepOutputCount.textContent = String(keepResult.matchedCount);
+      keepButton.disabled = keepResult.matchedCount === 0;
+      setKeepStatus(keepResult.missingIds.length
+        ? `匹配 ${keepResult.matchedCount} 个工作；${keepResult.missingIds.length} 个 ID 未找到。`
+        : `已匹配全部 ${keepResult.matchedCount} 个工作。`
+      );
+    } catch (error) {
+      setKeepStatus(`无法筛选：${error.message}`, true);
     }
   }
 
@@ -271,5 +311,36 @@
     const baseName = compareTargetName.replace(/\.json$/i, "");
     downloadJson(compareResult.data, `${baseName}_deduplicated.json`);
     setCompareStatus(`已删除 ${compareResult.duplicateCount} 个重复工作并下载新文件。`);
+  });
+
+  keepFileInput.addEventListener("change", async () => {
+    keepLoaded = null;
+    keepResult = null;
+    keepButton.disabled = true;
+    keepInputCount.textContent = "—";
+    keepRequestedCount.textContent = "—";
+    keepOutputCount.textContent = "—";
+    setKeepStatus("");
+
+    const file = keepFileInput.files?.[0];
+    if (!file) return;
+
+    try {
+      const data = core.validateExport(JSON.parse(await file.text()));
+      keepLoaded = { data, name: file.name };
+      keepInputCount.textContent = String(data.jobs.length);
+      updateKeepPreview();
+    } catch (error) {
+      setKeepStatus(`无法读取文件：${error.message}`, true);
+    }
+  });
+
+  keepIdsInput.addEventListener("input", updateKeepPreview);
+
+  keepButton.addEventListener("click", () => {
+    if (!keepLoaded || !keepResult) return;
+    const baseName = keepLoaded.name.replace(/\.json$/i, "");
+    downloadJson(keepResult.data, `${baseName}_selected.json`);
+    setKeepStatus(`已保留 ${keepResult.matchedCount} 个工作并下载新文件。`);
   });
 })();

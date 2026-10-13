@@ -190,6 +190,49 @@
     };
   }
 
+  function keepJobsByIds(input, requestedIds) {
+    const source = validateExport(input);
+    if (!Array.isArray(source.posting_ids)) {
+      throw new TypeError("文件缺少 posting_ids 数组。");
+    }
+    if (source.posting_ids.length !== source.jobs.length) {
+      throw new RangeError("posting_ids 与 jobs 数量不一致。");
+    }
+
+    const rawIds = Array.isArray(requestedIds)
+      ? requestedIds
+      : String(requestedIds || "").split(/[\s,，;；]+/);
+    const normalizedIds = rawIds.map((id) => String(id ?? "").trim()).filter(Boolean);
+    const requested = new Set(normalizedIds);
+    if (!requested.size) {
+      throw new RangeError("请至少输入一个要保留的工作 ID。");
+    }
+
+    const keptIds = [];
+    const keptJobs = [];
+    const matchedIds = new Set();
+
+    source.posting_ids.forEach((id, index) => {
+      const key = String(id ?? "").trim();
+      if (!requested.has(key)) return;
+      keptIds.push(id);
+      keptJobs.push(source.jobs[index]);
+      matchedIds.add(key);
+    });
+
+    return {
+      data: {
+        ...source,
+        total_jobs: keptJobs.length,
+        posting_ids: keptIds,
+        jobs: keptJobs
+      },
+      requestedCount: requested.size,
+      matchedCount: keptJobs.length,
+      missingIds: Array.from(requested).filter((id) => !matchedIds.has(id))
+    };
+  }
+
   function partFilename(originalName, partIndex, partCount) {
     const base = String(originalName || "waterlooworks_jobs.json").replace(/\.json$/i, "");
     const width = Math.max(2, String(partCount).length);
@@ -203,6 +246,7 @@
     mergeExportData,
     deleteMatchingJobs,
     removeJobsFoundInReference,
+    keepJobsByIds,
     partFilename
   };
 });
