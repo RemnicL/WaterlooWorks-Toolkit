@@ -21,7 +21,7 @@ Chrome extension for assigning WaterlooWorks postings to existing folders from a
 
 Before the assignment operation changes any posting, the extension opens the first visible posting's folder sidebar, reads the current folder-name-to-ID mapping, closes the sidebar, and verifies that every requested folder exists. It then submits each assignment sequentially and reports the completed count.
 
-During assignment, a posting returning a non-JSON HTTP 200 response without a redirect is skipped, and the remaining postings continue. This matches the reported behavior of an unavailable posting, but does not by itself prove the posting no longer exists. The result lists every skipped posting ID separately from successful assignments. Network errors, redirects, other HTTP statuses, and JSON failure responses still stop the batch; IDs already skipped are retained in the failure report.
+During assignment, a posting returning a non-JSON HTTP 200 response is skipped, including responses reached through a redirect, and the remaining postings continue. This matches the reported behavior of an unavailable posting, but does not by itself prove the posting no longer exists: other HTTP 200 HTML pages are also reported as skipped. The result lists every skipped posting ID separately from successful assignments. Network errors, other HTTP statuses, and JSON failure responses still stop the batch; IDs already skipped are retained in the failure report.
 
 After updating the extension, reload it in `chrome://extensions` and refresh the WaterlooWorks page so the current content script is used.
 

@@ -77,7 +77,6 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       const error = new Error(`工作 ${postingId}：服务器没有返回 JSON（HTTP ${response.status}）。`);
       error.code = "NON_JSON_RESPONSE";
       error.status = response.status;
-      error.redirected = response.redirected;
       throw error;
     }
 
@@ -219,7 +218,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
           try {
             await saveJobFolder(postingId, folder.id, action);
           } catch (error) {
-            if (error.code === "NON_JSON_RESPONSE" && error.status === 200 && !error.redirected) {
+            if (error.code === "NON_JSON_RESPONSE" && error.status === 200) {
               skippedPostingIds.push(postingId);
               continue;
             }

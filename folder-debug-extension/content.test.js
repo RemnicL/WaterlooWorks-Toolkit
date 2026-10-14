@@ -74,6 +74,18 @@ test("continues after an unavailable posting's HTTP 200 non-JSON response", asyn
   assert.ok(requests.every((request) => request.selectedFolder === "49626"));
 });
 
+test("continues when an unavailable posting redirects to an HTTP 200 HTML page", async () => {
+  const { response, requests } = await importWithResponses([
+    { text: '{"success":true}' },
+    { text: "<html>Posting unavailable</html>", redirected: true },
+    { text: '{"success":true}' }
+  ]);
+  assert.equal(response.success, true);
+  assert.equal(response.completedAssignments, 2);
+  assert.deepEqual(Array.from(response.skippedPostingIds), ["490378"]);
+  assert.equal(requests.length, 3);
+});
+
 test("stops on HTTP errors and retains IDs already skipped", async () => {
   const { response, requests } = await importWithResponses([
     { text: "<html>Posting unavailable</html>" },
@@ -89,7 +101,7 @@ test("stops on HTTP errors and retains IDs already skipped", async () => {
 test("does not skip JSON failures or network failures", async () => {
   for (const failure of [
     { text: '{"success":false}' },
-    { text: "<html>Login</html>", redirected: true },
+    { status: 401, text: "<html>Login required</html>" },
     new Error("Network unavailable")
   ]) {
     const { response, requests } = await importWithResponses([
