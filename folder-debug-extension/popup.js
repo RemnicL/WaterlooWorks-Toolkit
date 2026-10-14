@@ -11,6 +11,11 @@ function showOutput(text, kind = "") {
   output.className = kind;
 }
 
+function describeSkippedPostings(postingIds) {
+  if (!postingIds?.length) return "跳过：0";
+  return `跳过：${postingIds.length}\n跳过的工作 ID（HTTP 200 非 JSON 响应，岗位可能已下架）：\n${postingIds.join("\n")}`;
+}
+
 function describePlan(plan, fileName) {
   const lines = [
     `文件：${fileName}`,
@@ -94,7 +99,8 @@ runButton.addEventListener("click", async () => {
       const completed = response?.completedAssignments ?? 0;
       const total = response?.totalAssignments ?? selectedPlan.totalAssignments;
       throw new Error(
-        `${response?.error || "批量分配失败。"}\n已完成：${completed}/${total}`
+        `${response?.error || "批量分配失败。"}\n已完成：${completed}/${total}\n\n` +
+        describeSkippedPostings(response?.skippedPostingIds)
       );
     }
 
@@ -103,7 +109,8 @@ runButton.addEventListener("click", async () => {
       .join("\n");
 
     showOutput(
-      `完成：${response.completedAssignments}/${response.totalAssignments}\n\n` +
+      `处理完成，成功放入：${response.completedAssignments}/${response.totalAssignments}\n\n` +
+      `${describeSkippedPostings(response.skippedPostingIds)}\n\n` +
       `文件夹映射：\n${mappings}`,
       "success"
     );

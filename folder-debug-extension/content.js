@@ -74,7 +74,11 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
     try {
       result = JSON.parse(responseText);
     } catch (_error) {
-      throw new Error(`服务器没有返回 JSON（HTTP ${response.status}）。`);
+      const error = new Error(`工作 ${postingId}：服务器没有返回 JSON（HTTP ${response.status}）。`);
+      error.code = "NON_JSON_RESPONSE";
+      error.status = response.status;
+      error.redirected = response.redirected;
+      throw error;
     }
 
     if (!response.ok || result?.success !== true) {
@@ -205,13 +209,22 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
 
     const action = getSaveFormActionToken();
     const completed = [];
+    const skippedPostingIds = [];
 
     try {
       for (const plannedFolder of plan.folders) {
         const folder = foldersByName.get(plannedFolder.name);
 
         for (const postingId of plannedFolder.postingIds) {
-          await saveJobFolder(postingId, folder.id, action);
+          try {
+            await saveJobFolder(postingId, folder.id, action);
+          } catch (error) {
+            if (error.code === "NON_JSON_RESPONSE" && error.status === 200 && !error.redirected) {
+              skippedPostingIds.push(postingId);
+              continue;
+            }
+            throw error;
+          }
           completed.push({
             postingId,
             folderId: folder.id,
@@ -221,11 +234,13 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       }
     } catch (error) {
       error.completedAssignments = completed.length;
+      error.skippedPostingIds = skippedPostingIds;
       throw error;
     }
 
     console.group("WaterlooWorks Folder Importer: completed assignments");
     console.table(completed);
+    console.table(skippedPostingIds.map((postingId) => ({ postingId, reason: "HTTP 200 非 JSON 响应" })));
     console.groupEnd();
 
     return {
@@ -234,6 +249,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
         return { id: folder.id, name: folder.name };
       }),
       completedAssignments: completed.length,
+      skippedPostingIds,
       totalAssignments: plan.totalAssignments
     };
   }
@@ -281,6 +297,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
           success: false,
           error: error?.message || String(error),
           completedAssignments: error?.completedAssignments || 0,
+          skippedPostingIds: error?.skippedPostingIds || [],
           totalAssignments: normalizedPlan.totalAssignments
         }));
       return true;
