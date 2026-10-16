@@ -30,18 +30,18 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
     return "";
   }
 
-  function getSaveFormActionToken() {
+  function getPageActionToken(functionName) {
     const sources = [
       document.documentElement?.innerHTML || "",
       ...Array.from(document.scripts).map((script) => script.textContent || "")
     ];
 
     for (const source of sources) {
-      const token = extractActionToken(source, "saveForm");
+      const token = extractActionToken(source, functionName);
       if (token) return token;
     }
 
-    throw new Error("没有在当前页面找到 saveForm action；请确认已打开 Jobs 列表页面。");
+    throw new Error(`没有在当前页面找到 ${functionName} action；请确认已打开 Jobs 列表页面。`);
   }
 
   async function saveJobFolder(postingIdValue, folderIdValue, action) {
@@ -206,7 +206,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       throw new Error(`找不到以下 WaterlooWorks 文件夹：${missingNames.join(", ")}`);
     }
 
-    const action = getSaveFormActionToken();
+    const action = getPageActionToken("saveForm");
     const completed = [];
     const skippedPostingIds = [];
 
@@ -255,7 +255,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
 
   async function removeFolderAssignments(inputPlan) {
     const plan = WWFolderPlan.normalizeFolderPlan(inputPlan);
-    const action = getSaveFormActionToken();
+    const action = getPageActionToken("saveForm");
     const postingIds = plan.folders.flatMap((folder) => folder.postingIds);
     const completed = [];
 
@@ -279,7 +279,109 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
     };
   }
 
+  async function readPageJson(action, parameters = {}) {
+    const response = await fetch("/myAccount/co-op/full/jobs.htm", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: new URLSearchParams({ action, ...parameters }).toString()
+    });
+    if (!response.ok) {
+      throw new Error(`读取岗位状态失败（HTTP ${response.status}）。`);
+    }
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (_error) {
+      const error = new Error(`读取岗位状态时服务器没有返回 JSON（HTTP ${response.status}）。`);
+      error.code = "NON_JSON_RESPONSE";
+      error.status = response.status;
+      throw error;
+    }
+  }
+
+  async function removeAppliedPostings() {
+    const folderAction = getPageActionToken("getPostingsInFolders");
+    const postingAction = getPageActionToken("getPostingData");
+    const saveAction = getPageActionToken("saveForm");
+    const folderMap = await readPageJson(folderAction);
+    if (!folderMap || typeof folderMap !== "object" || Array.isArray(folderMap)
+      || Object.entries(folderMap).some(([id, folders]) => !/^\d+$/.test(id) || !Array.isArray(folders))) {
+      throw new Error("服务器返回的文件夹岗位列表格式不正确，未执行移出。");
+    }
+    const postingIds = Object.entries(folderMap)
+      .filter(([_id, folders]) => folders.length > 0)
+      .map(([id]) => id);
+    const appliedPostingIds = [];
+    const removedPostingIds = [];
+    const uncheckedPostingIds = [];
+
+    const result = () => ({
+      totalFolderPostings: postingIds.length,
+      totalAssignments: appliedPostingIds.length,
+      completedAssignments: removedPostingIds.length,
+      removedPostingIds,
+      uncheckedPostingIds
+    });
+
+    try {
+      // Finish checking every saved posting before changing any folder.
+      for (const postingId of postingIds) {
+        let posting;
+        try {
+          posting = await readPageJson(postingAction, { postingId });
+        } catch (error) {
+          if (error.code === "NON_JSON_RESPONSE" && error.status === 200) {
+            uncheckedPostingIds.push(postingId);
+            continue;
+          }
+          throw error;
+        }
+        if (String(posting?.id) !== postingId
+          || typeof posting?.applicationData?.hasApplication !== "boolean") {
+          uncheckedPostingIds.push(postingId);
+          continue;
+        }
+        if (posting.applicationData.hasApplication === true) {
+          appliedPostingIds.push(postingId);
+        }
+      }
+
+      for (const postingId of appliedPostingIds) {
+        await saveJobFolder(postingId, "", saveAction);
+        removedPostingIds.push(postingId);
+      }
+    } catch (error) {
+      Object.assign(error, result());
+      throw error;
+    }
+
+    console.group("WaterlooWorks Folder Importer: removed applied postings");
+    console.table(removedPostingIds.map((postingId) => ({ postingId })));
+    console.table(uncheckedPostingIds.map((postingId) => ({ postingId, reason: "无法确认申请状态，已保留" })));
+    console.groupEnd();
+    return result();
+  }
+
   chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    if (request.action === "WW_REMOVE_APPLIED_POSTINGS") {
+      removeAppliedPostings()
+        .then((result) => sendResponse({ success: true, ...result }))
+        .catch((error) => sendResponse({
+          success: false,
+          error: error?.message || String(error),
+          completedAssignments: error?.completedAssignments || 0,
+          totalAssignments: error?.totalAssignments || 0,
+          totalFolderPostings: error?.totalFolderPostings || 0,
+          removedPostingIds: error?.removedPostingIds || [],
+          uncheckedPostingIds: error?.uncheckedPostingIds || []
+        }));
+      return true;
+    }
+
     if (request.action === "WW_IMPORT_FOLDER_ASSIGNMENTS") {
       let normalizedPlan;
 

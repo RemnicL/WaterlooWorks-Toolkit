@@ -29,6 +29,12 @@ The remove operation uses the same observed `saveForm` request with an empty `se
 
 The extension extracts the current `saveForm` action token from the live page. It does not store authentication data or hard-code action tokens.
 
+## Remove applied postings
+
+Open the Full-Cycle WaterlooWorks Jobs page and click **从文件夹移出已申请岗位**. No JSON file is needed. The extension reads all saved posting IDs using `getPostingsInFolders`, checks each with `getPostingData`, and removes only postings whose matching `id` has `applicationData.hasApplication === true`. This scans all folders independently of the visible page or search filters. It uses `saveForm` with an empty `selectedFolder` and never invokes cancellation of an application.
+
+The result lists removed IDs and IDs whose application status could not be confirmed. Unreadable postings are retained. A network/HTTP error during scanning stops before any removals; a removal error stops with the successful removal IDs reported. Refresh the WaterlooWorks page after completion to update the displayed folder counts and rows.
+
 ## Batch-assignment JSON format
 
 See `example-folder-assignments.json` for the reference format that a job-selection task should produce.

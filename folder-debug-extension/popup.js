@@ -1,6 +1,7 @@
 const planFileInput = document.querySelector("#planFile");
 const runButton = document.querySelector("#runButton");
 const removeButton = document.querySelector("#removeButton");
+const removeAppliedButton = document.querySelector("#removeAppliedButton");
 const output = document.querySelector("#output");
 
 let selectedPlan = null;
@@ -9,6 +10,13 @@ let selectedInput = null;
 function showOutput(text, kind = "") {
   output.textContent = text;
   output.className = kind;
+}
+
+function setBusy(busy) {
+  runButton.disabled = busy || !selectedPlan;
+  removeButton.disabled = busy || !selectedPlan;
+  removeAppliedButton.disabled = busy;
+  planFileInput.disabled = busy;
 }
 
 function describeSkippedPostings(postingIds) {
@@ -82,9 +90,7 @@ planFileInput.addEventListener("change", async () => {
 runButton.addEventListener("click", async () => {
   if (!selectedPlan) return;
 
-  runButton.disabled = true;
-  removeButton.disabled = true;
-  planFileInput.disabled = true;
+  setBusy(true);
   showOutput(
     `正在读取文件夹映射并执行 ${selectedPlan.totalAssignments} 个分配……`
   );
@@ -117,18 +123,14 @@ runButton.addEventListener("click", async () => {
   } catch (error) {
     showOutput(error?.message || String(error), "error");
   } finally {
-    runButton.disabled = false;
-    removeButton.disabled = false;
-    planFileInput.disabled = false;
+    setBusy(false);
   }
 });
 
 removeButton.addEventListener("click", async () => {
   if (!selectedPlan || !selectedInput) return;
 
-  runButton.disabled = true;
-  removeButton.disabled = true;
-  planFileInput.disabled = true;
+  setBusy(true);
   showOutput(
     `正在将 JSON 中的 ${selectedPlan.totalAssignments} 个工作移出当前文件夹……`
   );
@@ -154,8 +156,34 @@ removeButton.addEventListener("click", async () => {
   } catch (error) {
     showOutput(error?.message || String(error), "error");
   } finally {
-    runButton.disabled = false;
-    removeButton.disabled = false;
-    planFileInput.disabled = false;
+    setBusy(false);
+  }
+});
+
+removeAppliedButton.addEventListener("click", async () => {
+  setBusy(true);
+  showOutput("正在检查所有文件夹中的岗位，并移出已申请岗位……");
+
+  try {
+    const response = await sendToContentScript({ action: "WW_REMOVE_APPLIED_POSTINGS" });
+    if (!response) throw new Error("未收到清理结果，请刷新 WaterlooWorks 页面后重试。");
+
+    const lines = [
+      response.success ? "清理完成。" : `清理中止：${response.error}`,
+      `文件夹内岗位：${response.totalFolderPostings}`,
+      `已确认申请：${response.totalAssignments}`,
+      `成功移出：${response.completedAssignments}`,
+      "",
+      "已移出的岗位 ID：",
+      response.removedPostingIds.join("\n") || "无"
+    ];
+    if (response.uncheckedPostingIds.length > 0) {
+      lines.push("", "无法确认申请状态，已保留的岗位 ID：", response.uncheckedPostingIds.join("\n"));
+    }
+    showOutput(lines.join("\n"), response.success ? "success" : "error");
+  } catch (error) {
+    showOutput(error?.message || String(error), "error");
+  } finally {
+    setBusy(false);
   }
 });
