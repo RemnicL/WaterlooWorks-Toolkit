@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const WATERLOOWORKS_JOBS_URL = "https://waterlooworks.uwaterloo.ca/myAccount/co-op/full/jobs.htm";
   const exportJobsBtn = document.getElementById("exportJobsBtn");
   const exportStatus = document.getElementById("exportStatus");
@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     input.id = option;
     input.type = "checkbox";
     input.checked = true;
+    input.disabled = true;
     const text = document.createElement("span");
     text.textContent = label;
     optionLabel.append(input, text);
@@ -44,6 +45,24 @@ document.addEventListener("DOMContentLoaded", () => {
       Object.entries(exportOptionInputs).map(([name, input]) => [name, Boolean(input?.checked)])
     );
   }
+
+  try {
+    const savedOptions = await chrome.storage.local.get(Object.keys(exportOptionInputs));
+    for (const [name, input] of Object.entries(exportOptionInputs)) {
+      if (typeof savedOptions[name] === "boolean") input.checked = savedOptions[name];
+    }
+  } catch (error) {
+    setStatus(`Could not load saved selections: ${error.message}`, true);
+  }
+  for (const [name, input] of Object.entries(exportOptionInputs)) {
+    input.disabled = false;
+    input.addEventListener("change", () => {
+      chrome.storage.local.set({ [name]: input.checked }).catch((error) => {
+        setStatus(`Could not save selections: ${error.message}`, true);
+      });
+    });
+  }
+  exportJobsBtn.disabled = false;
 
   async function getWaterlooWorksTab() {
     const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });

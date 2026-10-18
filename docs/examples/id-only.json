@@ -1,0 +1,5 @@
+{
+  "total_jobs": 1,
+  "posting_ids": ["EXAMPLE-001"],
+  "jobs": [{ "posting_id": "EXAMPLE-001" }]
+}

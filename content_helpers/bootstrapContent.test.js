@@ -16,7 +16,7 @@ function loadHelpers(globals = {}) {
   return context;
 }
 
-test("each section option exports only its own field", () => {
+test("each section option exports its own field alongside the mandatory posting ID", () => {
   const { helpers, WWExportFields: fields } = loadHelpers();
   const job = { posting_id: "123", title: "Test role", hiring_history: {} };
   for (const { field, group } of fields) {
@@ -25,15 +25,19 @@ test("each section option exports only its own field", () => {
   }
   for (const { option, field, group } of fields) {
     const [result] = helpers.selectExportFields([job], { [option]: true });
-    assert.deepEqual(Object.keys(result), [field], option);
+    assert.deepEqual(Object.keys(result), ["posting_id", field], option);
+    assert.equal(result.posting_id, "123");
     assert.equal(result[field], group === "Hiring history" ? job.hiring_history[field] : job[field]);
   }
 });
 
-test("unchecking every option excludes every job field, including work term duration", () => {
+test("unchecking every option retains only the posting ID", () => {
   const { helpers } = loadHelpers();
   const [result] = helpers.selectExportFields([{ posting_id: "123", work_term_duration: "4 months" }], {});
-  assert.deepEqual(Object.keys(result), []);
+  assert.deepEqual(Object.keys(result), ["posting_id"]);
+  assert.equal(result.posting_id, "123");
+  const [missingId] = helpers.selectExportFields([{}], {});
+  assert.equal(JSON.stringify(missingId), '{"posting_id":""}');
 });
 
 test("basic row information remains separate from detail sections", () => {
@@ -122,6 +126,9 @@ test("database handoff schema and examples match the actual export projection", 
   const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
   const schema = readJson("docs/job-export.schema.json");
   const properties = schema.$defs.job.properties;
+  assert.deepEqual(schema.$defs.job.required, ["posting_id"]);
+  assert.equal(properties.posting_id["x-always-exported"], true);
+  assert.ok(!("x-export-option" in properties.posting_id));
   const full = readJson("docs/examples/all-sections.json");
   const partial = readJson("docs/examples/selected-sections.json");
   const source = { ...full.jobs[0], hiring_history: {} };
@@ -143,6 +150,8 @@ test("database handoff schema and examples match the actual export projection", 
     includeBasicInfo: true, includeJobSummary: true, includeServiceTeam: true
   });
   assert.deepEqual(JSON.parse(JSON.stringify(selected)), partial.jobs[0]);
+  const idOnly = readJson("docs/examples/id-only.json");
+  assert.deepEqual(JSON.parse(JSON.stringify(helpers.selectExportFields([source], {})[0])), idOnly.jobs[0]);
   for (const example of [full, partial]) {
     assert.equal(example.total_jobs, example.jobs.length);
     assert.deepEqual(example.posting_ids, example.jobs.map((job) => job.posting_id));

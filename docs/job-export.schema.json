@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:waterlooworks:job-export:157e7f2",
-  "title": "WaterlooWorks JSON export after commit 157e7f2",
-  "$comment": "Snapshot of the existing exporter payload, not a new payload version. The payload contains neither schema_version nor exportOptions. x-export-option and x-change are documentation annotations. This schema intentionally does not require individual job fields. It cannot enforce total_jobs/jobs length, posting ID identity or safe database upsert policy.",
+  "$id": "urn:waterlooworks:job-export:posting-id-required",
+  "title": "WaterlooWorks JSON export (Posting ID always included)",
+  "$comment": "Current exporter contract including mandatory Posting ID. The payload contains neither schema_version nor exportOptions. x-export-option, x-always-exported and x-change are documentation annotations; x-change refers to the section expansion in commit 157e7f2. Only posting_id is required within each job. This schema cannot enforce total_jobs/jobs length, nonempty job identity or safe database upsert policy.",
   "type": "object",
   "required": [
     "total_jobs",
@@ -23,7 +23,7 @@
         "type": "string",
         "minLength": 1
       },
-      "description": "Deduplicated nonempty posting IDs in encounter order. Not guaranteed to align by index with jobs. Present even when basic information is unchecked."
+      "description": "Deduplicated nonempty posting IDs in encounter order. Not guaranteed to align by index with jobs. Present even when search-result information is unchecked."
     },
     "jobs": {
       "type": "array",
@@ -36,13 +36,13 @@
     "job": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Any field can be omitted by deselecting its option. An empty object is a valid export when all content options are deselected.",
+      "description": "Posting ID is always included. All other fields can be omitted by deselecting their options. When all content options are deselected, each job contains only posting_id.",
       "properties": {
         "posting_id": {
           "type": "string",
-          "description": "Posting identifier from the search-result row. String, not an integer; may be empty if the source row has no ID.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "description": "Posting identifier from the search-result row. String, not an integer; may be empty if the source row has no ID. Always exported independently of all checkbox selections.",
+          "x-change": "existing",
+          "x-always-exported": true
         },
         "title": {
           "type": "string",
@@ -278,7 +278,10 @@
           "x-export-option": "includeFrequentlyHiredPrograms",
           "x-change": "existing"
         }
-      }
+      },
+      "required": [
+        "posting_id"
+      ]
     },
     "serviceTeam": {
       "type": "array",

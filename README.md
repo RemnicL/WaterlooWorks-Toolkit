@@ -8,14 +8,16 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 - Keeps your current filter selection
 - Walks every result page
 - Exports one JSON file with independently selectable content:
-  - Basic job row fields
+  - Posting ID (always included)
+  - Search-result row information (`搜索结果列表信息`): title, organization, division, openings, city, level, applications, deadline, and raw row text
   - Job posting information: work term, job type, title, openings, level, region, full address, location arrangement, duration, special requirements, summary, responsibilities, skills, compensation and benefits, and targeted degrees and disciplines
   - Application information: deadline, required documents, additional application information, and application method
   - Company information: organization and division
   - Service team (table rows, each exported as an array of cell values)
   - Individual hiring-history fields: `hires_by_faculty`, `hires_by_student_work_term_number`, and `most_frequently_hired_programs`
 - Reads each overview field from its own HTML container, including full descriptions and collapsed targeted-program lists
-- Includes all content options by default; unchecking an option omits its field from each job. Selected fields absent from a posting export as empty strings, an empty array for `service_team`, or `null` for hiring history.
+- Restores checkbox selections from local extension storage whenever the popup opens, and saves each change immediately, including the current-page-only option. Storage is not read or written during job collection. Options without saved values retain their original defaults (all content selected; current-page-only off).
+- Unchecking an option omits its optional fields from each job. Posting ID is always included, even when every option is unchecked. Selected fields absent from a posting export as empty strings, an empty array for `service_team`, or `null` for hiring history.
 
 ## What was removed
 
@@ -44,8 +46,8 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 
 ## Database import contract
 
-See [JSON export handoff](docs/json-export-contract.md) for the changes introduced by `157e7f2`, missing/empty-value semantics, and importer considerations. A [JSON Schema](docs/job-export.schema.json) and [synthetic examples](docs/examples/all-sections.json) are included for other processes.
+See [JSON export handoff](docs/json-export-contract.md) for the current contract, including the mandatory Posting ID, changes introduced by `157e7f2`, missing/empty-value semantics, and importer considerations. A [JSON Schema](docs/job-export.schema.json) and [synthetic examples](docs/examples/all-sections.json) are included for other processes.
 
 ## Tests
 
-Run `node --test content_helpers/bootstrapContent.test.js json-tool/splitter-core.test.js folder-debug-extension/content.test.js folder-debug-extension/folder-plan.test.js`.
+Run `node --test options.test.js content_helpers/bootstrapContent.test.js json-tool/splitter-core.test.js folder-debug-extension/content.test.js folder-debug-extension/folder-plan.test.js`.

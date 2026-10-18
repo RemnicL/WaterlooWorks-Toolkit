@@ -584,12 +584,12 @@ function bootstrapContentScript() {
 
   function selectExportFields(jobs, exportOptions) {
     const basicFields = [
-      "posting_id", "title", "organization", "division", "openings",
+      "title", "organization", "division", "openings",
       "city", "level", "apps", "app_deadline", "raw_text"
     ];
 
     return jobs.map((job) => {
-      const exportedJob = {};
+      const exportedJob = { posting_id: job.posting_id ?? "" };
       if (exportOptions.includeBasicInfo) {
         basicFields.forEach((field) => { exportedJob[field] = job[field]; });
       }

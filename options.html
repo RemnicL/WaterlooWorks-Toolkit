@@ -138,18 +138,19 @@
     <p>
       Keep your current WaterlooWorks filter as-is, then export every result page into one local JSON file.
     </p>
-    <button id="exportJobsBtn">Download Current Filter as JSON</button>
+    <button id="exportJobsBtn" disabled>Download Current Filter as JSON</button>
     <section class="export-options" aria-labelledby="exportOptionsTitle">
       <h2 id="exportOptionsTitle">Include in JSON</h2>
       <label class="export-option">
-        <input id="includeBasicInfo" type="checkbox" checked>
-        <span>Basic job information</span>
+        <input id="includeBasicInfo" type="checkbox" checked disabled>
+        <span>搜索结果列表信息</span>
       </label>
       <label class="export-option">
-        <input id="includeCurrentPageOnly" type="checkbox">
+        <input id="includeCurrentPageOnly" type="checkbox" disabled>
         <span>Export jobs from the current page only</span>
       </label>
       <div id="sectionExportOptions"></div>
+      <p>Posting ID is always included. Checkbox selections are saved automatically in this browser.</p>
     </section>
     <div id="exportStatus" class="status"></div>
     <div class="hint">
