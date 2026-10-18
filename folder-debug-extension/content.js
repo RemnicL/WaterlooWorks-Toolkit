@@ -8,7 +8,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
   function requireNumericId(value, label) {
     const normalized = cleanText(value);
     if (!/^\d+$/.test(normalized)) {
-      throw new Error(`${label} 必须是数字。`);
+      throw new Error(`${label} must contain only digits.`);
     }
     return normalized;
   }
@@ -41,14 +41,14 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       if (token) return token;
     }
 
-    throw new Error(`没有在当前页面找到 ${functionName} action；请确认已打开 Jobs 列表页面。`);
+    throw new Error(`Could not find the ${functionName} action. Open the WaterlooWorks Jobs page.`);
   }
 
   async function saveJobFolder(postingIdValue, folderIdValue, action) {
-    const postingId = requireNumericId(postingIdValue, "工作 ID");
+    const postingId = requireNumericId(postingIdValue, "Job ID");
     const folderId = folderIdValue === ""
       ? ""
-      : requireNumericId(folderIdValue, "文件夹 ID");
+      : requireNumericId(folderIdValue, "Folder ID");
 
     const body = new URLSearchParams({
       action,
@@ -74,14 +74,14 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
     try {
       result = JSON.parse(responseText);
     } catch (_error) {
-      const error = new Error(`工作 ${postingId}：服务器没有返回 JSON（HTTP ${response.status}）。`);
+      const error = new Error(`Job ${postingId}: the server did not return JSON (HTTP ${response.status}).`);
       error.code = "NON_JSON_RESPONSE";
       error.status = response.status;
       throw error;
     }
 
     if (!response.ok || result?.success !== true) {
-      throw new Error(`保存失败（HTTP ${response.status}）：${responseText}`);
+      throw new Error(`Save failed (HTTP ${response.status}): ${responseText}`);
     }
 
     return result;
@@ -135,7 +135,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
     const closeButton = sidebar?.querySelector(".modal__btn--close-posting");
 
     if (!closeButton) {
-      throw new Error("已读取文件夹，但没有找到弹窗关闭按钮。");
+      throw new Error("Folders were read, but the panel close button could not be found.");
     }
 
     closeButton.click();
@@ -163,7 +163,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       observer.observe(document.body, { childList: true, subtree: true });
 
       const timeoutId = setTimeout(() => {
-        finish(null, new Error("打开弹窗后没有读取到文件夹列表。"));
+        finish(null, new Error("Could not read the folder list after opening the panel."));
       }, 8000);
 
       openPanel();
@@ -174,7 +174,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
   async function discoverFolders() {
     const button = findFolderButton();
     if (!button) {
-      throw new Error("没有找到职位行；请先打开包含职位结果的 Jobs 列表。");
+      throw new Error("No job rows found. Open a Jobs list containing search results.");
     }
 
     const { viewer, folders } = await waitForFolderPanel(() => button.click());
@@ -194,7 +194,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
 
     for (const folder of folders) {
       if (foldersByName.has(folder.name)) {
-        throw new Error(`WaterlooWorks 中存在重复文件夹名称："${folder.name}"。`);
+        throw new Error(`Duplicate folder name in WaterlooWorks: "${folder.name}".`);
       }
       foldersByName.set(folder.name, folder);
     }
@@ -203,7 +203,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       .map((folder) => folder.name)
       .filter((name) => !foldersByName.has(name));
     if (missingNames.length > 0) {
-      throw new Error(`找不到以下 WaterlooWorks 文件夹：${missingNames.join(", ")}`);
+      throw new Error(`WaterlooWorks folders not found: ${missingNames.join(", ")}`);
     }
 
     const action = getPageActionToken("saveForm");
@@ -239,7 +239,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
 
     console.group("WaterlooWorks Folder Importer: completed assignments");
     console.table(completed);
-    console.table(skippedPostingIds.map((postingId) => ({ postingId, reason: "HTTP 200 非 JSON 响应" })));
+    console.table(skippedPostingIds.map((postingId) => ({ postingId, reason: "Non-JSON HTTP 200 response" })));
     console.groupEnd();
 
     return {
@@ -249,32 +249,6 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       }),
       completedAssignments: completed.length,
       skippedPostingIds,
-      totalAssignments: plan.totalAssignments
-    };
-  }
-
-  async function removeFolderAssignments(inputPlan) {
-    const plan = WWFolderPlan.normalizeFolderPlan(inputPlan);
-    const action = getPageActionToken("saveForm");
-    const postingIds = plan.folders.flatMap((folder) => folder.postingIds);
-    const completed = [];
-
-    try {
-      for (const postingId of postingIds) {
-        await saveJobFolder(postingId, "", action);
-        completed.push(postingId);
-      }
-    } catch (error) {
-      error.completedAssignments = completed.length;
-      throw error;
-    }
-
-    console.group("WaterlooWorks Folder Importer: removed assignments");
-    console.table(completed.map((postingId) => ({ postingId })));
-    console.groupEnd();
-
-    return {
-      completedAssignments: completed.length,
       totalAssignments: plan.totalAssignments
     };
   }
@@ -290,13 +264,13 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
       body: new URLSearchParams({ action, ...parameters }).toString()
     });
     if (!response.ok) {
-      throw new Error(`读取岗位状态失败（HTTP ${response.status}）。`);
+      throw new Error(`Could not read job data (HTTP ${response.status}).`);
     }
     const text = await response.text();
     try {
       return JSON.parse(text);
     } catch (_error) {
-      const error = new Error(`读取岗位状态时服务器没有返回 JSON（HTTP ${response.status}）。`);
+      const error = new Error(`The server did not return JSON while reading job data (HTTP ${response.status}).`);
       error.code = "NON_JSON_RESPONSE";
       error.status = response.status;
       throw error;
@@ -308,7 +282,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
     const folderMap = await readPageJson(folderAction);
     if (!folderMap || typeof folderMap !== "object" || Array.isArray(folderMap)
       || Object.entries(folderMap).some(([id, folders]) => !/^\d+$/.test(id) || !Array.isArray(folders))) {
-      throw new Error("服务器返回的文件夹岗位列表格式不正确，未执行移出。");
+      throw new Error("The server returned an invalid folder membership list. No jobs were removed.");
     }
     return Object.entries(folderMap)
       .filter(([_id, folders]) => folders.length > 0)
@@ -343,7 +317,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
 
     console.group("WaterlooWorks Folder Importer: cleared all folder postings");
     console.table(removedPostingIds.map((postingId) => ({ postingId })));
-    console.table(skippedPostingIds.map((postingId) => ({ postingId, reason: "HTTP 200 非 JSON 响应" })));
+    console.table(skippedPostingIds.map((postingId) => ({ postingId, reason: "Non-JSON HTTP 200 response" })));
     console.groupEnd();
     return result();
   }
@@ -398,7 +372,7 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
 
     console.group("WaterlooWorks Folder Importer: removed applied postings");
     console.table(removedPostingIds.map((postingId) => ({ postingId })));
-    console.table(uncheckedPostingIds.map((postingId) => ({ postingId, reason: "无法确认申请状态，已保留" })));
+    console.table(uncheckedPostingIds.map((postingId) => ({ postingId, reason: "Application status unconfirmed; job kept" })));
     console.groupEnd();
     return result();
   }
@@ -451,27 +425,6 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
           error: error?.message || String(error),
           completedAssignments: error?.completedAssignments || 0,
           skippedPostingIds: error?.skippedPostingIds || [],
-          totalAssignments: normalizedPlan.totalAssignments
-        }));
-      return true;
-    }
-
-    if (request.action === "WW_REMOVE_FOLDER_ASSIGNMENTS") {
-      let normalizedPlan;
-
-      try {
-        normalizedPlan = WWFolderPlan.normalizeFolderPlan(request.plan);
-      } catch (error) {
-        sendResponse({ success: false, error: error?.message || String(error) });
-        return false;
-      }
-
-      removeFolderAssignments(request.plan)
-        .then((result) => sendResponse({ success: true, ...result }))
-        .catch((error) => sendResponse({
-          success: false,
-          error: error?.message || String(error),
-          completedAssignments: error?.completedAssignments || 0,
           totalAssignments: normalizedPlan.totalAssignments
         }));
       return true;

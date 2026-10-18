@@ -26,20 +26,20 @@ test("rejects a posting assigned to more than one folder", () => {
         Consider: ["488545"]
       }
     }),
-    /同时出现在/
+    /appears in both/
   );
 });
 
 test("rejects numeric JSON values instead of posting ID strings", () => {
   assert.throws(
     () => normalizeFolderPlan({ folders: { Interested: [488545] } }),
-    /正整数字符串/
+    /positive integer strings/
   );
 });
 
 test("rejects unexpected top-level fields", () => {
   assert.throws(
     () => normalizeFolderPlan({ folders: { Interested: ["488545"] }, note: "extra" }),
-    /顶层只能包含/
+    /must contain only/
   );
 });

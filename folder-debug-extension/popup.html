@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,29 +11,28 @@
     <h1>Folder Importer</h1>
 
     <section>
-      <h2>选择分类 JSON</h2>
-      <p>文件夹名称必须与 WaterlooWorks 中的名称完全一致。</p>
-      <label for="planFile">JSON 文件</label>
+      <h2>Import Folder Assignments</h2>
+      <p>Folder names must exactly match those in WaterlooWorks.</p>
+      <label for="planFile">JSON file</label>
       <input id="planFile" type="file" accept=".json,application/json">
-      <button id="runButton" type="button" disabled>读取映射并放入文件夹</button>
-      <button id="removeButton" class="danger" type="button" disabled>将所有工作移出当前文件夹</button>
+      <button id="runButton" type="button" disabled>Assign Jobs to Folders</button>
     </section>
 
     <section>
-      <h2>清理已申请岗位</h2>
-      <p>检查所有 My Jobs 文件夹，移出已申请的岗位。无需 JSON。</p>
-      <button id="removeAppliedButton" class="danger" type="button">从文件夹移出已申请岗位</button>
+      <h2>Remove Applied Jobs</h2>
+      <p>Check all My Jobs folders and remove jobs you have applied to. No JSON file needed.</p>
+      <button id="removeAppliedButton" class="danger" type="button">Remove Applied Jobs from Folders</button>
     </section>
 
     <section>
-      <h2>清空分类文件夹</h2>
-      <p>移出所有自建 My Jobs 文件夹中的全部岗位，保留文件夹。无需 JSON。</p>
-      <button id="clearAllFoldersButton" class="danger" type="button">移出所有分类文件夹中的岗位</button>
+      <h2>Clear All Classification Folders</h2>
+      <p>Remove all jobs from your custom My Jobs folders. The folders are kept. No JSON file needed.</p>
+      <button id="clearAllFoldersButton" class="danger" type="button">Remove All Jobs from Folders</button>
     </section>
 
     <section>
-      <h2>计划与结果</h2>
-      <pre id="output">等待操作。</pre>
+      <h2>Plan and Results</h2>
+      <pre id="output">Ready.</pre>
     </section>
   </main>
 

@@ -1,41 +1,41 @@
 (function exposeFolderPlan(scope) {
   function normalizeFolderPlan(input) {
     if (!input || typeof input !== "object" || Array.isArray(input)) {
-      throw new Error("JSON 顶层必须是对象。");
+      throw new Error("The top-level JSON value must be an object.");
     }
 
     const topLevelKeys = Object.keys(input);
     if (topLevelKeys.length !== 1 || topLevelKeys[0] !== "folders") {
-      throw new Error('JSON 顶层只能包含 "folders"。');
+      throw new Error('The top-level JSON object must contain only "folders".');
     }
 
     if (!input.folders || typeof input.folders !== "object" || Array.isArray(input.folders)) {
-      throw new Error('"folders" 必须是以文件夹名称为键的对象。');
+      throw new Error('"folders" must be an object keyed by folder name.');
     }
 
     const seenPostingIds = new Map();
     const folders = Object.entries(input.folders).map(([name, postingIds]) => {
       if (!name || name !== name.trim()) {
-        throw new Error("文件夹名称不能为空，也不能包含首尾空格。");
+        throw new Error("Folder names must not be empty or have leading or trailing spaces.");
       }
       if (!Array.isArray(postingIds)) {
-        throw new Error(`文件夹 "${name}" 的值必须是工作 ID 数组。`);
+        throw new Error(`Folder "${name}" must contain an array of job IDs.`);
       }
 
       const seenInFolder = new Set();
       const normalizedIds = postingIds.map((postingId) => {
         if (typeof postingId !== "string" || !/^[1-9]\d*$/.test(postingId)) {
-          throw new Error(`文件夹 "${name}" 包含无效工作 ID；ID 必须是正整数字符串。`);
+          throw new Error(`Folder "${name}" contains an invalid job ID; IDs must be positive integer strings.`);
         }
         if (seenInFolder.has(postingId)) {
-          throw new Error(`工作 ID ${postingId} 在文件夹 "${name}" 中重复。`);
+          throw new Error(`Job ID ${postingId} is duplicated in folder "${name}".`);
         }
         seenInFolder.add(postingId);
 
         const previousFolder = seenPostingIds.get(postingId);
         if (previousFolder) {
           throw new Error(
-            `工作 ID ${postingId} 同时出现在 "${previousFolder}" 和 "${name}" 中。`
+            `Job ID ${postingId} appears in both "${previousFolder}" and "${name}".`
           );
         }
         seenPostingIds.set(postingId, name);
@@ -46,7 +46,7 @@
     });
 
     if (folders.length === 0) {
-      throw new Error('"folders" 至少需要包含一个文件夹。');
+      throw new Error('"folders" must contain at least one folder.');
     }
 
     const totalAssignments = folders.reduce(
@@ -54,7 +54,7 @@
       0
     );
     if (totalAssignments === 0) {
-      throw new Error("JSON 中没有任何工作 ID。");
+      throw new Error("The JSON file contains no job IDs.");
     }
 
     return { folders, totalAssignments };
