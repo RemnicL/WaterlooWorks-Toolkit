@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WaterlooWorks Folder Importer",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Assign WaterlooWorks postings to existing folders from a JSON file.",
   "permissions": [
     "activeTab",

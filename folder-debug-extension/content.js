@@ -303,18 +303,55 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
     }
   }
 
-  async function removeAppliedPostings() {
+  async function getFolderPostingIds() {
     const folderAction = getPageActionToken("getPostingsInFolders");
-    const postingAction = getPageActionToken("getPostingData");
-    const saveAction = getPageActionToken("saveForm");
     const folderMap = await readPageJson(folderAction);
     if (!folderMap || typeof folderMap !== "object" || Array.isArray(folderMap)
       || Object.entries(folderMap).some(([id, folders]) => !/^\d+$/.test(id) || !Array.isArray(folders))) {
       throw new Error("服务器返回的文件夹岗位列表格式不正确，未执行移出。");
     }
-    const postingIds = Object.entries(folderMap)
+    return Object.entries(folderMap)
       .filter(([_id, folders]) => folders.length > 0)
       .map(([id]) => id);
+  }
+
+  async function clearAllFolderPostings() {
+    const saveAction = getPageActionToken("saveForm");
+    const postingIds = await getFolderPostingIds();
+    const removedPostingIds = [];
+    const skippedPostingIds = [];
+    const result = () => ({
+      totalAssignments: postingIds.length,
+      completedAssignments: removedPostingIds.length,
+      removedPostingIds,
+      skippedPostingIds
+    });
+
+    for (const postingId of postingIds) {
+      try {
+        await saveJobFolder(postingId, "", saveAction);
+        removedPostingIds.push(postingId);
+      } catch (error) {
+        if (error.code === "NON_JSON_RESPONSE" && error.status === 200) {
+          skippedPostingIds.push(postingId);
+          continue;
+        }
+        Object.assign(error, result(), { failedPostingId: postingId });
+        throw error;
+      }
+    }
+
+    console.group("WaterlooWorks Folder Importer: cleared all folder postings");
+    console.table(removedPostingIds.map((postingId) => ({ postingId })));
+    console.table(skippedPostingIds.map((postingId) => ({ postingId, reason: "HTTP 200 非 JSON 响应" })));
+    console.groupEnd();
+    return result();
+  }
+
+  async function removeAppliedPostings() {
+    const postingAction = getPageActionToken("getPostingData");
+    const saveAction = getPageActionToken("saveForm");
+    const postingIds = await getFolderPostingIds();
     const appliedPostingIds = [];
     const removedPostingIds = [];
     const uncheckedPostingIds = [];
@@ -367,6 +404,21 @@ if (!globalThis.__wwFolderImporterV3Loaded) {
   }
 
   chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    if (request.action === "WW_CLEAR_ALL_FOLDER_POSTINGS") {
+      clearAllFolderPostings()
+        .then((result) => sendResponse({ success: true, ...result }))
+        .catch((error) => sendResponse({
+          success: false,
+          error: error?.message || String(error),
+          completedAssignments: error?.completedAssignments || 0,
+          totalAssignments: error?.totalAssignments || 0,
+          removedPostingIds: error?.removedPostingIds || [],
+          skippedPostingIds: error?.skippedPostingIds || [],
+          failedPostingId: error?.failedPostingId || ""
+        }));
+      return true;
+    }
+
     if (request.action === "WW_REMOVE_APPLIED_POSTINGS") {
       removeAppliedPostings()
         .then((result) => sendResponse({ success: true, ...result }))

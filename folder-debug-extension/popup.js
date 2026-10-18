@@ -2,6 +2,7 @@ const planFileInput = document.querySelector("#planFile");
 const runButton = document.querySelector("#runButton");
 const removeButton = document.querySelector("#removeButton");
 const removeAppliedButton = document.querySelector("#removeAppliedButton");
+const clearAllFoldersButton = document.querySelector("#clearAllFoldersButton");
 const output = document.querySelector("#output");
 
 let selectedPlan = null;
@@ -16,6 +17,7 @@ function setBusy(busy) {
   runButton.disabled = busy || !selectedPlan;
   removeButton.disabled = busy || !selectedPlan;
   removeAppliedButton.disabled = busy;
+  clearAllFoldersButton.disabled = busy;
   planFileInput.disabled = busy;
 }
 
@@ -179,6 +181,34 @@ removeAppliedButton.addEventListener("click", async () => {
     ];
     if (response.uncheckedPostingIds.length > 0) {
       lines.push("", "无法确认申请状态，已保留的岗位 ID：", response.uncheckedPostingIds.join("\n"));
+    }
+    showOutput(lines.join("\n"), response.success ? "success" : "error");
+  } catch (error) {
+    showOutput(error?.message || String(error), "error");
+  } finally {
+    setBusy(false);
+  }
+});
+
+clearAllFoldersButton.addEventListener("click", async () => {
+  setBusy(true);
+  showOutput("正在读取所有分类文件夹，并移出其中的全部岗位……");
+
+  try {
+    const response = await sendToContentScript({ action: "WW_CLEAR_ALL_FOLDER_POSTINGS" });
+    if (!response) throw new Error("未收到清空结果，请刷新 WaterlooWorks 页面后重试。");
+
+    const lines = [
+      response.success ? "处理完成。" : `处理中止：${response.error}`,
+      `成功移出：${response.completedAssignments}/${response.totalAssignments}`,
+      "",
+      describeSkippedPostings(response.skippedPostingIds),
+      "",
+      "已移出的岗位 ID：",
+      response.removedPostingIds.join("\n") || "无"
+    ];
+    if (response.failedPostingId) {
+      lines.push("", `失败的岗位 ID：${response.failedPostingId}`);
     }
     showOutput(lines.join("\n"), response.success ? "success" : "error");
   } catch (error) {

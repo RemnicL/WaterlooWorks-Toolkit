@@ -35,6 +35,12 @@ Open the Full-Cycle WaterlooWorks Jobs page and click **从文件夹移出已申
 
 The result lists removed IDs and IDs whose application status could not be confirmed. Unreadable postings are retained. A network/HTTP error during scanning stops before any removals; a removal error stops with the successful removal IDs reported. Refresh the WaterlooWorks page after completion to update the displayed folder counts and rows.
 
+## Clear all classification folders
+
+Click **移出所有分类文件夹中的岗位** on the Full-Cycle Jobs page. No JSON is needed. This reads all posting-to-folder memberships from `getPostingsInFolders` and clears each saved posting using `saveForm` with an empty `selectedFolder`. A posting in multiple folders is processed once. It covers all custom My Jobs folders regardless of the current filters or page, retains the folders themselves, and does not cancel applications or add postings to Removed From Search.
+
+The result lists removed IDs and skipped IDs. HTTP 200 non-JSON responses are skipped as in JSON import; other errors stop with the successful count, skipped IDs, and failed posting ID reported. Refresh the page afterward to see updated folder contents.
+
 ## Batch-assignment JSON format
 
 See `example-folder-assignments.json` for the reference format that a job-selection task should produce.

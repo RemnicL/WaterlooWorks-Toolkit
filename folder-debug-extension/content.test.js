@@ -215,3 +215,62 @@ test("cleanup handles empty folders and rejects malformed folder lists without w
     assert.equal(requests.length, 1);
   }
 });
+
+test("clear-all removes each saved posting once across every folder without a JSON plan", async () => {
+  const { response, requests } = await importWithResponses([
+    jsonResponse({ "490170": [1], "490378": [2, 3], "492430": [] }),
+    jsonResponse({ success: true }),
+    jsonResponse({ success: true })
+  ], "WW_CLEAR_ALL_FOLDER_POSTINGS");
+
+  assert.equal(response.success, true);
+  assert.equal(response.totalAssignments, 2);
+  assert.equal(response.completedAssignments, 2);
+  assert.deepEqual(Array.from(response.removedPostingIds), ["490170", "490378"]);
+  assert.deepEqual(requests.map((request) => request.action), ["folder-action", "test-action", "test-action"]);
+  assert.deepEqual(requests.slice(1).map((request) => request.postingIds), ["490170", "490378"]);
+  assert.ok(requests.slice(1).every((request) => request.selectedFolder === "" && request.blacklist === "false"));
+});
+
+test("clear-all skips unavailable responses and continues with the remaining postings", async () => {
+  const { response, requests } = await importWithResponses([
+    jsonResponse({ "490170": [1], "490378": [2], "492430": [3] }),
+    jsonResponse({ success: true }),
+    { text: "<html>Posting unavailable</html>", redirected: true },
+    jsonResponse({ success: true })
+  ], "WW_CLEAR_ALL_FOLDER_POSTINGS");
+
+  assert.equal(response.success, true);
+  assert.equal(response.completedAssignments, 2);
+  assert.deepEqual(Array.from(response.skippedPostingIds), ["490378"]);
+  assert.deepEqual(Array.from(response.removedPostingIds), ["490170", "492430"]);
+  assert.equal(requests.length, 4);
+});
+
+test("clear-all reports partial results and the failed ID on a server error", async () => {
+  const { response, requests } = await importWithResponses([
+    jsonResponse({ "490170": [1], "490378": [2], "492430": [3], "499999": [3] }),
+    jsonResponse({ success: true }),
+    { text: "<html>Posting unavailable</html>" },
+    { status: 500, text: "<html>Server error</html>" }
+  ], "WW_CLEAR_ALL_FOLDER_POSTINGS");
+
+  assert.equal(response.success, false);
+  assert.equal(response.completedAssignments, 1);
+  assert.equal(response.totalAssignments, 4);
+  assert.deepEqual(Array.from(response.removedPostingIds), ["490170"]);
+  assert.deepEqual(Array.from(response.skippedPostingIds), ["490378"]);
+  assert.equal(response.failedPostingId, "492430");
+  assert.equal(requests.length, 4);
+});
+
+test("clear-all handles empty folders and rejects invalid responses before writes", async () => {
+  for (const folderMap of [{}, [], { invalid: [1] }, { "490170": "invalid" }]) {
+    const { response, requests } = await importWithResponses([
+      jsonResponse(folderMap)
+    ], "WW_CLEAR_ALL_FOLDER_POSTINGS");
+    assert.equal(response.success, !Array.isArray(folderMap) && Object.keys(folderMap).length === 0);
+    assert.equal(response.completedAssignments, 0);
+    assert.equal(requests.length, 1);
+  }
+});
