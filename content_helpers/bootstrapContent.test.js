@@ -158,15 +158,55 @@ test("unchecking every option retains only the posting ID", () => {
   assert.equal(JSON.stringify(missingId), '{"posting_id":""}');
 });
 
-test("basic row information remains separate from detail sections", () => {
+test("list information follows the corresponding content selections", () => {
   const { helpers } = loadHelpers();
   const [result] = helpers.selectExportFields([{
     posting_id: "123", title: "Test role", work_term_duration: "4 months", compensation_and_benefits: "$25/hour"
-  }], { includeBasicInfo: true });
+  }], { includeBasicInfo: true, includeJobTitle: true });
   assert.equal(result.posting_id, "123");
   assert.equal(result.title, "Test role");
   assert.ok(!("work_term_duration" in result));
   assert.ok(!("compensation_and_benefits" in result));
+});
+
+test("unchecking a content field removes both sources and its value from raw_text", () => {
+  const { helpers, WWExportFields: fields } = loadHelpers();
+  const pairs = [
+    ["includeJobTitle", "title", "job_title"],
+    ["includeCompanyOrganization", "organization", "company_organization"],
+    ["includeCompanyDivision", "division", "company_division"],
+    ["includeJobOpenings", "openings", "number_of_job_openings"],
+    ["includeJobCity", "city", "job_city"],
+    ["includeLevel", "level", "job_level"],
+    ["includeApplicationDeadline", "app_deadline", "application_deadline"]
+  ];
+  const job = { posting_id: "123", apps: "17", raw_text: "Unfiltered row" };
+  for (const [, listField, detailField] of pairs) {
+    job[listField] = `LIST_${listField.toUpperCase()}`;
+    job[detailField] = `DETAIL_${detailField.toUpperCase()}`;
+  }
+  for (const [option, listField, detailField] of pairs) {
+    const options = { includeBasicInfo: true, ...Object.fromEntries(fields.map(({ option }) => [option, true])), [option]: false };
+    const [result] = helpers.selectExportFields([job], options);
+    assert.equal(listField in result, false, listField);
+    assert.equal(detailField in result, false, detailField);
+    assert.ok(!result.raw_text.includes(job[listField]), option);
+    assert.ok(!result.raw_text.includes(job[detailField]), option);
+    assert.ok(!result.raw_text.includes("Unfiltered row"));
+    assert.equal(result.posting_id, "123");
+    assert.equal(result.apps, "17");
+    for (const [otherOption, otherListField] of pairs) {
+      if (otherOption !== option) assert.equal(result[otherListField], job[otherListField]);
+    }
+  }
+});
+
+test("keeping only the list-information option does not reintroduce deselected content", () => {
+  const { helpers } = loadHelpers();
+  const [result] = helpers.selectExportFields([{
+    posting_id: "123", apps: "17", city: "Waterloo", level: "Senior", raw_text: "123 | Waterloo | Senior | 17"
+  }], { includeBasicInfo: true });
+  assert.equal(JSON.stringify(result), '{"posting_id":"123","apps":"17","raw_text":"123 | 17"}');
 });
 
 test("selected but absent sections have explicit empty values", () => {
@@ -262,6 +302,12 @@ test("database handoff schema and examples match the actual export projection", 
     assert.equal(properties[field]["x-export-option"], option, field);
     assert.equal(properties[field].$ref ?? properties[field].type,
       group === "Hiring history" ? "#/$defs/hiringHistory" : field === "service_team" ? "#/$defs/serviceTeam" : "string", field);
+  }
+  for (const [field, option] of Object.entries({
+    title: "includeJobTitle", organization: "includeCompanyOrganization", division: "includeCompanyDivision",
+    openings: "includeJobOpenings", city: "includeJobCity", level: "includeLevel", app_deadline: "includeApplicationDeadline"
+  })) {
+    assert.deepEqual(properties[field]["x-export-requires"], ["includeBasicInfo", option]);
   }
   assert.deepEqual(JSON.parse(JSON.stringify(exported)), full.jobs[0]);
   const [selected] = helpers.selectExportFields([source], {

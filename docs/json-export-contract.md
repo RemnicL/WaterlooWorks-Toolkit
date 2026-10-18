@@ -2,7 +2,7 @@
 
 本文描述**当前导出行为**，包括功能提交 `157e7f2` 新增的板块，以及后续的 Posting ID 始终导出、列表开关改名和勾选配置保存。JSON 中未加入版本号。
 
-当前更新：`posting_id` 是每条职位记录的必填属性，不再由复选框控制；原 Basic job information 开关已改名为“搜索结果列表信息”，只控制其余九个列表字段。全部复选框（包括仅导出当前页）会自动保存到本机扩展存储，并在下次打开面板时恢复。没有已保存值的选项继续使用原默认配置。
+当前更新：`posting_id` 是每条职位记录的必填属性，不再由复选框控制；原 Basic job information 开关已改名为“搜索结果列表信息”。该开关启用后，列表中的名称、公司、部门、人数、城市、级别、截止时间仍须对应内容选项被勾选才会导出；申请人数 `apps` 随列表开关导出，`raw_text` 仅由 ID 和实际选中的列表字段重新拼接。全部复选框（包括仅导出当前页）会自动保存到本机扩展存储，并在下次打开面板时恢复。没有已保存值的选项继续使用原默认配置。
 
 新增筛选选项“跳过已申请岗位”（内部名称 `skipAppliedJobs`），默认关闭并支持记忆。选中后，导出器读取搜索列表职位名称旁由 `JobTitle.applied` 控制的 `check_circle` 已申请标记，在抓取详情前排除已经申请的职位；`jobs`、`posting_ids` 和 `total_jobs` 都只描述保留的职位。没有申请资格与已经申请是不同状态：例如 493499 的详情接口合法返回 `applicationData: {"canApply": false}` 而不提供 `hasApplication`，不会因此中断或排除该职位。列表的 Job Title 列须可见并已加载；无法识别该列的职位链接或缺失职位 ID 时，导出报错。全部被排除时不下载空文件。此选项不增加 `has_applied` 等 JSON 字段，不改变字段类型。数据库导入端不应把本次未出现的职位视为删除指令，因为它们可能只是被筛选排除了。
 
@@ -15,10 +15,10 @@
 ## 机器可读材料
 
 - `job-export.schema.json`：JSON Schema Draft 2020-12，覆盖当前 40 个职位字段及类型。
-- 可选职位属性的 `x-export-option` 标注对应复选框；内部选项名 `includeBasicInfo` 仍用于“搜索结果列表信息”，现在同时控制九个列表字段。`posting_id` 使用 `x-always-exported: true` 注解，没有对应复选框。
+- 单开关属性的 `x-export-option` 标注对应复选框。列表中与详情成对的属性使用 `x-export-requires` 列出必须同时开启的两个选项（`includeBasicInfo` 加对应内容选项）。`posting_id` 使用 `x-always-exported: true` 注解，没有对应复选框。
 - `x-change` 为 `added` 的是此次新增字段，为 `existing` 的是既有字段。两者是 Schema 注解，不会出现在导出数据中。
 - `examples/all-sections.json`：开启所有内容选项的合成示例，包含 40 个字段。
-- `examples/selected-sections.json`：仅开启搜索结果列表信息、职位简介、服务团队的合成示例。未选择的字段直接缺失。
+- `examples/selected-sections.json`：仅开启搜索结果列表信息、职位简介、服务团队，输出 ID、`apps`、筛选后的 `raw_text`、简介和服务团队。未选择的名称、城市、级别等列表和详情字段均缺失。
 - `examples/id-only.json`：取消所有内容选项后，仅保留 `posting_id` 的合成示例。
 - 示例不包含真实职位或个人信息，不应作为真实数据导入生产库。
 
@@ -50,7 +50,7 @@ Schema 的 `additionalProperties: false` 用来发现不属于当前快照的字
 
 `posting_id`、`title`、`organization`、`division`、`openings`、`city`、`level`、`apps`、`app_deadline`、`raw_text`。
 
-这些字段来自搜索结果列表。`posting_id` 始终导出；其余九项由“搜索结果列表信息”（内部选项名 `includeBasicInfo`）共同控制。数量字段 `openings`、`apps` 仍是显示文本，不是 JSON 数值。ID 仍是字符串，源页面未提供 ID 时导出 `""`。
+这些字段来自搜索结果列表。`posting_id` 始终导出；“搜索结果列表信息”（内部选项名 `includeBasicInfo`）控制是否加入其余列表信息，其中与详情成对的七项还须对应内容选项开启。`apps` 仅由列表开关控制；`raw_text` 由 ID 和选中的列表字段重新拼接，不再无条件包含整行原文。数量字段 `openings`、`apps` 仍是显示文本，不是 JSON 数值。ID 仍是字符串，源页面未提供 ID 时导出 `""`。
 
 ### 既有详情：5 个字符串，分别控制
 
@@ -132,7 +132,7 @@ Schema 的 `additionalProperties: false` 用来发现不属于当前快照的字
 
 ### 列表值与详情值是不同来源
 
-以下属性是并存字段，不是改名或替换关系，也不保证内容相同：
+以下属性仍来自不同位置，值不保证相同，但现在共用对应的内容开关：取消该内容选项会同时省略两者；开启内容选项会导出详情值，另外开启“搜索结果列表信息”才会附带列表值。列表的 `raw_text` 同样遵循这一选择。
 
 | 列表字段 | 详情字段 |
 | --- | --- |

@@ -592,14 +592,23 @@ function bootstrapContentScript() {
 
   function selectExportFields(jobs, exportOptions) {
     const basicFields = [
-      "title", "organization", "division", "openings",
-      "city", "level", "apps", "app_deadline", "raw_text"
-    ];
+      ["title", "includeJobTitle"],
+      ["organization", "includeCompanyOrganization"],
+      ["division", "includeCompanyDivision"],
+      ["openings", "includeJobOpenings"],
+      ["city", "includeJobCity"],
+      ["level", "includeLevel"],
+      ["apps", null],
+      ["app_deadline", "includeApplicationDeadline"]
+    ].filter(([, option]) => !option || exportOptions[option]).map(([field]) => field);
 
     return jobs.map((job) => {
       const exportedJob = { posting_id: job.posting_id ?? "" };
       if (exportOptions.includeBasicInfo) {
         basicFields.forEach((field) => { exportedJob[field] = job[field]; });
+        exportedJob.raw_text = cleanText(
+          [exportedJob.posting_id, ...basicFields.map((field) => exportedJob[field])].join(" | ")
+        );
       }
       for (const { option, field, group } of globalThis.WWExportFields) {
         if (!exportOptions[option]) continue;

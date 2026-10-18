@@ -10,7 +10,7 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 - Offers `跳过已申请岗位` (off by default) to exclude postings using the search list's applied marker (`check_circle` next to the job title, rendered from `JobTitle.applied`). Ineligible postings remain exportable: their overview response may legitimately omit `hasApplication`. No extra status requests are needed, and excluded jobs are not fetched for further detail. The Job Title column must be visible and loaded so its marker can be read. When every job is excluded, no file is downloaded.
 - Exports one JSON file with independently selectable content:
   - Posting ID (always included)
-  - Search-result row information (`搜索结果列表信息`): title, organization, division, openings, city, level, applications, deadline, and raw row text
+  - Search-result row information (`搜索结果列表信息`): applications and selected list fields. Title, organization, division, openings, city, level, and deadline also require their corresponding content checkbox. `raw_text` is rebuilt using only the selected list values and Posting ID.
   - Job posting information: work term, job type, title, openings, level, region, full address, location arrangement, duration, special requirements, summary, responsibilities, skills, compensation and benefits, and targeted degrees and disciplines
   - Application information: deadline, required documents, additional application information, and application method
   - Company information: organization and division

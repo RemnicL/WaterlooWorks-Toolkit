@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:waterlooworks:job-export:posting-id-required",
+  "$id": "urn:waterlooworks:job-export:linked-field-selection",
   "title": "WaterlooWorks JSON export (Posting ID always included)",
-  "$comment": "Current exporter contract including mandatory Posting ID. The payload contains neither schema_version nor exportOptions. x-export-option, x-always-exported and x-change are documentation annotations; x-change refers to the section expansion in commit 157e7f2. Only posting_id is required within each job. This schema cannot enforce total_jobs/jobs length, nonempty job identity or safe database upsert policy.",
+  "$comment": "Current exporter contract including mandatory Posting ID. The payload contains neither schema_version nor exportOptions. x-export-option, x-always-exported and x-change are documentation annotations; x-change refers to the section expansion in commit 157e7f2. Only posting_id is required within each job. This schema cannot enforce total_jobs/jobs length, nonempty job identity or safe database upsert policy. Paired list fields require both includeBasicInfo and the corresponding content option; x-export-requires lists this conjunction. raw_text is rebuilt only from selected list values.",
   "type": "object",
   "required": [
     "total_jobs",
@@ -47,38 +47,56 @@
         "title": {
           "type": "string",
           "description": "Job title from the search-result row.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeJobTitle"
+          ]
         },
         "organization": {
           "type": "string",
           "description": "Organization from the search-result row.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeCompanyOrganization"
+          ]
         },
         "division": {
           "type": "string",
           "description": "Division from the search-result row.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeCompanyDivision"
+          ]
         },
         "openings": {
           "type": "string",
           "description": "Opening count as display text, not a JSON number.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeJobOpenings"
+          ]
         },
         "city": {
           "type": "string",
           "description": "City from the search-result row.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeJobCity"
+          ]
         },
         "level": {
           "type": "string",
           "description": "Level as display text, not an array.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeLevel"
+          ]
         },
         "apps": {
           "type": "string",
@@ -89,12 +107,15 @@
         "app_deadline": {
           "type": "string",
           "description": "Deadline display text from the search-result row; not ISO 8601 and has no guaranteed timezone.",
-          "x-export-option": "includeBasicInfo",
-          "x-change": "existing"
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeApplicationDeadline"
+          ]
         },
         "raw_text": {
           "type": "string",
-          "description": "Search-result cells joined with | and whitespace normalized.",
+          "description": "Posting ID and the selected search-result values joined with | and whitespace normalized. Rebuilt after field selection; does not contain values from deselected list fields.",
           "x-export-option": "includeBasicInfo",
           "x-change": "existing"
         },
@@ -112,7 +133,7 @@
         },
         "job_title": {
           "type": "string",
-          "description": "Job title from the overview; independent of title.",
+          "description": "Job title from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
           "x-export-option": "includeJobTitle",
           "x-change": "added"
         },
@@ -148,7 +169,7 @@
         },
         "job_city": {
           "type": "string",
-          "description": "City from the overview; independent of city.",
+          "description": "City from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
           "x-export-option": "includeJobCity",
           "x-change": "added"
         },
@@ -244,13 +265,13 @@
         },
         "company_organization": {
           "type": "string",
-          "description": "Organization from the overview; independent of organization.",
+          "description": "Organization from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
           "x-export-option": "includeCompanyOrganization",
           "x-change": "added"
         },
         "company_division": {
           "type": "string",
-          "description": "Division from the overview; independent of division.",
+          "description": "Division from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
           "x-export-option": "includeCompanyDivision",
           "x-change": "added"
         },
