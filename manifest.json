@@ -23,6 +23,7 @@
         "https://waterlooworks.uwaterloo.ca/*"
       ],
       "js": [
+        "export-fields.js",
         "content_helpers/bootstrapContent.js",
         "content.js"
       ],

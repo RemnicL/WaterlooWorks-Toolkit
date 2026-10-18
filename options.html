@@ -81,6 +81,11 @@
       font-size: 15px;
     }
 
+    .export-options h3 {
+      margin: 16px 0 8px;
+      font-size: 14px;
+    }
+
     .export-option {
       display: flex;
       align-items: flex-start;
@@ -144,40 +149,14 @@
         <input id="includeCurrentPageOnly" type="checkbox">
         <span>Export jobs from the current page only</span>
       </label>
-      <label class="export-option">
-        <input id="includeHiresByFaculty" type="checkbox" checked>
-        <span>Hiring history: hires by faculty</span>
-      </label>
-      <label class="export-option">
-        <input id="includeHiresByWorkTerm" type="checkbox" checked>
-        <span>Hiring history: hires by student work-term number</span>
-      </label>
-      <label class="export-option">
-        <input id="includeFrequentlyHiredPrograms" type="checkbox" checked>
-        <span>Hiring history: most frequently hired programs</span>
-      </label>
-      <label class="export-option">
-        <input id="includeSpecialRequirements" type="checkbox" checked>
-        <span>Special job requirements</span>
-      </label>
-      <label class="export-option">
-        <input id="includeRequiredSkills" type="checkbox" checked>
-        <span>Required skills</span>
-      </label>
-      <label class="export-option">
-        <input id="includeJobResponsibilities" type="checkbox" checked>
-        <span>Job responsibilities</span>
-      </label>
-      <label class="export-option">
-        <input id="includeJobSummary" type="checkbox" checked>
-        <span>Job summary</span>
-      </label>
+      <div id="sectionExportOptions"></div>
     </section>
     <div id="exportStatus" class="status"></div>
     <div class="hint">
       Make sure a WaterlooWorks jobs page is open and your desired filter is already selected before exporting.
     </div>
   </div>
+  <script src="export-fields.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

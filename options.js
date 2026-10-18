@@ -4,15 +4,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const exportStatus = document.getElementById("exportStatus");
   const exportOptionInputs = {
     includeBasicInfo: document.getElementById("includeBasicInfo"),
-    includeCurrentPageOnly: document.getElementById("includeCurrentPageOnly"),
-    includeHiresByFaculty: document.getElementById("includeHiresByFaculty"),
-    includeHiresByWorkTerm: document.getElementById("includeHiresByWorkTerm"),
-    includeFrequentlyHiredPrograms: document.getElementById("includeFrequentlyHiredPrograms"),
-    includeSpecialRequirements: document.getElementById("includeSpecialRequirements"),
-    includeRequiredSkills: document.getElementById("includeRequiredSkills"),
-    includeJobResponsibilities: document.getElementById("includeJobResponsibilities"),
-    includeJobSummary: document.getElementById("includeJobSummary")
+    includeCurrentPageOnly: document.getElementById("includeCurrentPageOnly")
   };
+  const sectionOptions = document.getElementById("sectionExportOptions");
+  let currentGroup = "";
+  for (const { option, label, group } of globalThis.WWExportFields) {
+    if (group !== currentGroup) {
+      const heading = document.createElement("h3");
+      heading.textContent = group;
+      sectionOptions.append(heading);
+      currentGroup = group;
+    }
+    const optionLabel = document.createElement("label");
+    optionLabel.className = "export-option";
+    const input = document.createElement("input");
+    input.id = option;
+    input.type = "checkbox";
+    input.checked = true;
+    const text = document.createElement("span");
+    text.textContent = label;
+    optionLabel.append(input, text);
+    sectionOptions.append(optionLabel);
+    exportOptionInputs[option] = input;
+  }
 
   function setStatus(message, isError = false) {
     if (!exportStatus) return;
@@ -61,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
           try {
             await chrome.scripting.executeScript({
               target: { tabId },
-              files: ["content_helpers/bootstrapContent.js", "content.js"]
+              files: ["export-fields.js", "content_helpers/bootstrapContent.js", "content.js"]
             });
           } catch (_injectErr) {}
         }

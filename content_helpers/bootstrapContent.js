@@ -457,45 +457,36 @@ function bootstrapContentScript() {
   }
 
   function getExtraFieldsFromOverviewHtml(html) {
-    const out = {
-      work_term_duration: "",
-      special_job_requirements: "",
-      required_skills: "",
-      job_responsibilities: "",
-      job_summary: ""
-    };
+    const fields = globalThis.WWExportFields.filter(({ group }) => group !== "Hiring history");
+    const out = Object.fromEntries(fields.map(({ field }) => [field, field === "service_team" ? [] : ""]));
     if (!html) return out;
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-    const pageText = doc.body?.innerText || "";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const normalizeLabel = (label) => cleanText(label).toLowerCase().replace(/[^a-z0-9]/g, "");
+    const fieldsByLabel = new Map(fields.map(({ field, label }) => [normalizeLabel(label), field]));
 
-    function extractByLabel(labelRegex, stopRegex) {
-      const match = pageText.match(labelRegex);
-      if (!match || !match[1]) return "";
-      let value = match[1];
-      if (stopRegex) value = value.split(stopRegex)[0] || value;
-      return cleanText(value);
+    function readText(node) {
+      if (node.nodeType === 3) return node.textContent;
+      if (node.nodeType !== 1 || /^(SCRIPT|STYLE|BUTTON)$/.test(node.tagName)) return "";
+      const text = Array.from(node.childNodes).map(readText).join("");
+      return /^(BR|P|DIV|UL|OL|LI|TABLE|TR|TD|TH|H[1-6])$/.test(node.tagName) ? ` ${text} ` : text;
     }
 
-    out.work_term_duration = extractByLabel(/work\s*term\s*duration\s*[:\-]?\s*([^\n]{1,150})/i);
-    out.special_job_requirements = extractByLabel(
-      /special\s*job\s*requirements?\s*[:\-]?\s*([\s\S]{1,1200})/i,
-      /\n\s*(required\s*skills?|job\s*responsibilities?|job\s*summary|compensation|documents?\s*required|additional\s*information)\b/i
-    );
-    out.required_skills = extractByLabel(
-      /required\s*skills?\s*[:\-]?\s*([\s\S]{1,1200})/i,
-      /\n\s*(job\s*responsibilities?|job\s*summary|special\s*job\s*requirements?|compensation|documents?\s*required|additional\s*information)\b/i
-    );
-    out.job_responsibilities = extractByLabel(
-      /job\s*responsibilities?\s*[:\-]?\s*([\s\S]{1,1200})/i,
-      /\n\s*(required\s*skills?|job\s*summary|special\s*job\s*requirements?|compensation|documents?\s*required|additional\s*information)\b/i
-    );
-    out.job_summary = extractByLabel(
-      /job\s*summary\s*[:\-]?\s*([\s\S]{1,1200})/i,
-      /\n\s*(job\s*responsibilities?|required\s*skills?|special\s*job\s*requirements?|compensation|documents?\s*required|additional\s*information)\b/i
-    );
+    for (const container of doc.querySelectorAll(".js--question--container")) {
+      const label = container.querySelector(".label");
+      const field = fieldsByLabel.get(normalizeLabel(label?.textContent || ""));
+      if (!field) continue;
+      out[field] = cleanText(Array.from(container.childNodes)
+        .filter((node) => node !== label)
+        .map(readText).join(""));
+    }
 
+    for (const panel of doc.querySelectorAll(".panel")) {
+      if (normalizeLabel(panel.querySelector("h4")?.textContent || "") !== "serviceteam") continue;
+      out.service_team = Array.from(panel.querySelectorAll("tr"))
+        .map((row) => Array.from(row.querySelectorAll("th,td")).map((cell) => cleanText(readText(cell))))
+        .filter((row) => row.length > 0);
+    }
     return out;
   }
 
@@ -558,13 +549,7 @@ function bootstrapContentScript() {
             };
           }
         } catch (_e) {
-          extraMap[postingId] = {
-            work_term_duration: "",
-            special_job_requirements: "",
-            required_skills: "",
-            job_responsibilities: "",
-            job_summary: ""
-          };
+          extraMap[postingId] = getExtraFieldsFromOverviewHtml("");
           if (includeHiringHistory) {
             historyMap[postingId] = {
               hires_by_faculty: null,
@@ -593,13 +578,7 @@ function bootstrapContentScript() {
           most_frequently_hired_programs: null
         }
       } : {}),
-      ...(extraMap[job.posting_id] || {
-        work_term_duration: "",
-        special_job_requirements: "",
-        required_skills: "",
-        job_responsibilities: "",
-        job_summary: ""
-      })
+      ...(extraMap[job.posting_id] || getExtraFieldsFromOverviewHtml(""))
     }));
   }
 
@@ -614,20 +593,12 @@ function bootstrapContentScript() {
       if (exportOptions.includeBasicInfo) {
         basicFields.forEach((field) => { exportedJob[field] = job[field]; });
       }
-      exportedJob.work_term_duration = job.work_term_duration ?? "";
-      if (exportOptions.includeHiresByFaculty) {
-        exportedJob.hires_by_faculty = job.hiring_history?.hires_by_faculty ?? null;
+      for (const { option, field, group } of globalThis.WWExportFields) {
+        if (!exportOptions[option]) continue;
+        exportedJob[field] = group === "Hiring history"
+          ? job.hiring_history?.[field] ?? null
+          : job[field] ?? (field === "service_team" ? [] : "");
       }
-      if (exportOptions.includeHiresByWorkTerm) {
-        exportedJob.hires_by_student_work_term_number = job.hiring_history?.hires_by_student_work_term_number ?? null;
-      }
-      if (exportOptions.includeFrequentlyHiredPrograms) {
-        exportedJob.most_frequently_hired_programs = job.hiring_history?.most_frequently_hired_programs ?? null;
-      }
-      if (exportOptions.includeSpecialRequirements) exportedJob.special_job_requirements = job.special_job_requirements;
-      if (exportOptions.includeRequiredSkills) exportedJob.required_skills = job.required_skills;
-      if (exportOptions.includeJobResponsibilities) exportedJob.job_responsibilities = job.job_responsibilities;
-      if (exportOptions.includeJobSummary) exportedJob.job_summary = job.job_summary;
       return exportedJob;
     });
   }
@@ -704,13 +675,7 @@ function bootstrapContentScript() {
           const exportOptions = request.exportOptions || {
             includeBasicInfo: true,
             includeCurrentPageOnly: false,
-            includeHiresByFaculty: true,
-            includeHiresByWorkTerm: true,
-            includeFrequentlyHiredPrograms: true,
-            includeSpecialRequirements: true,
-            includeRequiredSkills: true,
-            includeJobResponsibilities: true,
-            includeJobSummary: true
+            ...Object.fromEntries(globalThis.WWExportFields.map(({ option }) => [option, true]))
           };
           const result = await exportFilteredJobs(exportOptions, 120);
           sendResponse({ success: true, jobs: result.jobs, postingIds: result.postingIds });

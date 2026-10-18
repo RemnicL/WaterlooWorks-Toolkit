@@ -7,14 +7,15 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 - Reads the currently open WaterlooWorks jobs page
 - Keeps your current filter selection
 - Walks every result page
-- Exports one JSON file with:
-  - basic job row fields
-- `work_term_duration`
-- `special_job_requirements`
-- `required_skills`
-- `job_responsibilities`
-- `job_summary`
-- individual hiring-history fields: `hires_by_faculty`, `hires_by_student_work_term_number`, and `most_frequently_hired_programs`
+- Exports one JSON file with independently selectable content:
+  - Basic job row fields
+  - Job posting information: work term, job type, title, openings, level, region, full address, location arrangement, duration, special requirements, summary, responsibilities, skills, compensation and benefits, and targeted degrees and disciplines
+  - Application information: deadline, required documents, additional application information, and application method
+  - Company information: organization and division
+  - Service team (table rows, each exported as an array of cell values)
+  - Individual hiring-history fields: `hires_by_faculty`, `hires_by_student_work_term_number`, and `most_frequently_hired_programs`
+- Reads each overview field from its own HTML container, including full descriptions and collapsed targeted-program lists
+- Includes all content options by default; unchecking an option omits its field from each job. Selected fields absent from a posting export as empty strings, an empty array for `service_team`, or `null` for hiring history.
 
 ## What was removed
 
@@ -40,3 +41,7 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 3. Open the extension popup
 4. Choose which job information to include. Select `Export jobs from the current page only` to skip all other result pages.
 5. Click `Download Current Filter as JSON`
+
+## Tests
+
+Run `node --test content_helpers/bootstrapContent.test.js json-tool/splitter-core.test.js folder-debug-extension/content.test.js folder-debug-extension/folder-plan.test.js`.
