@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:waterlooworks:job-export:linked-field-selection",
+  "title": "WaterlooWorks JSON export (Posting ID always included)",
+  "$comment": "Current exporter contract including mandatory Posting ID. The payload contains neither schema_version nor exportOptions. x-export-option, x-always-exported and x-change are documentation annotations; x-change refers to the section expansion in commit 157e7f2. Only posting_id is required within each job. This schema cannot enforce total_jobs/jobs length, nonempty job identity or safe database upsert policy. Paired list fields require both includeBasicInfo and the corresponding content option; x-export-requires lists this conjunction. raw_text is rebuilt only from selected list values.",
+  "type": "object",
+  "required": [
+    "total_jobs",
+    "posting_ids",
+    "jobs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "total_jobs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of exported job objects, not necessarily the number of unique posting IDs. The extension UI does not download an empty result."
+    },
+    "posting_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Deduplicated nonempty posting IDs in encounter order. Not guaranteed to align by index with jobs. Present even when search-result information is unchecked."
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/job"
+      }
+    }
+  },
+  "$defs": {
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Posting ID is always included. All other fields can be omitted by deselecting their options. When all content options are deselected, each job contains only posting_id.",
+      "properties": {
+        "posting_id": {
+          "type": "string",
+          "description": "Posting identifier from the search-result row. String, not an integer; may be empty if the source row has no ID. Always exported independently of all checkbox selections.",
+          "x-change": "existing",
+          "x-always-exported": true
+        },
+        "title": {
+          "type": "string",
+          "description": "Job title from the search-result row.",
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeJobTitle"
+          ]
+        },
+        "organization": {
+          "type": "string",
+          "description": "Organization from the search-result row.",
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeCompanyOrganization"
+          ]
+        },
+        "division": {
+          "type": "string",
+          "description": "Division from the search-result row.",
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeCompanyDivision"
+          ]
+        },
+        "openings": {
+          "type": "string",
+          "description": "Opening count as display text, not a JSON number.",
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeJobOpenings"
+          ]
+        },
+        "city": {
+          "type": "string",
+          "description": "City from the search-result row.",
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeJobCity"
+          ]
+        },
+        "level": {
+          "type": "string",
+          "description": "Level as display text, not an array.",
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeLevel"
+          ]
+        },
+        "apps": {
+          "type": "string",
+          "description": "Application count as display text, not a JSON number.",
+          "x-export-option": "includeBasicInfo",
+          "x-change": "existing"
+        },
+        "app_deadline": {
+          "type": "string",
+          "description": "Deadline display text from the search-result row; not ISO 8601 and has no guaranteed timezone.",
+          "x-change": "existing",
+          "x-export-requires": [
+            "includeBasicInfo",
+            "includeApplicationDeadline"
+          ]
+        },
+        "raw_text": {
+          "type": "string",
+          "description": "Posting ID and the selected search-result values joined with | and whitespace normalized. Rebuilt after field selection; does not contain values from deselected list fields.",
+          "x-export-option": "includeBasicInfo",
+          "x-change": "existing"
+        },
+        "work_term": {
+          "type": "string",
+          "description": "Work term. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeWorkTerm",
+          "x-change": "added"
+        },
+        "job_type": {
+          "type": "string",
+          "description": "Job type. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeJobType",
+          "x-change": "added"
+        },
+        "job_title": {
+          "type": "string",
+          "description": "Job title from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
+          "x-export-option": "includeJobTitle",
+          "x-change": "added"
+        },
+        "number_of_job_openings": {
+          "type": "string",
+          "description": "Opening count from the overview as a string, not a number.",
+          "x-export-option": "includeJobOpenings",
+          "x-change": "added"
+        },
+        "job_level": {
+          "type": "string",
+          "description": "Level from the overview as whitespace-normalized text, not an array.",
+          "x-export-option": "includeLevel",
+          "x-change": "added"
+        },
+        "region": {
+          "type": "string",
+          "description": "Region. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeRegion",
+          "x-change": "added"
+        },
+        "job_address_line_one": {
+          "type": "string",
+          "description": "Job - Address line one. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeAddressLineOne",
+          "x-change": "added"
+        },
+        "job_address_line_two": {
+          "type": "string",
+          "description": "Job - Address line two. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeAddressLineTwo",
+          "x-change": "added"
+        },
+        "job_city": {
+          "type": "string",
+          "description": "City from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
+          "x-export-option": "includeJobCity",
+          "x-change": "added"
+        },
+        "job_province_state": {
+          "type": "string",
+          "description": "Job - Province/State. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeProvinceState",
+          "x-change": "added"
+        },
+        "job_postal_zip_code": {
+          "type": "string",
+          "description": "Job - Postal/Zip code. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includePostalZipCode",
+          "x-change": "added"
+        },
+        "job_country": {
+          "type": "string",
+          "description": "Job - Country. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeJobCountry",
+          "x-change": "added"
+        },
+        "employment_location_arrangement": {
+          "type": "string",
+          "description": "Employment location arrangement. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeLocationArrangement",
+          "x-change": "added"
+        },
+        "work_term_duration": {
+          "type": "string",
+          "description": "Full duration display text. Unlike the previous export, this field can now be deselected and omitted.",
+          "x-export-option": "includeWorkTermDuration",
+          "x-change": "existing"
+        },
+        "special_job_requirements": {
+          "type": "string",
+          "description": "Special job requirements. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeSpecialRequirements",
+          "x-change": "existing"
+        },
+        "job_summary": {
+          "type": "string",
+          "description": "Job summary. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeJobSummary",
+          "x-change": "existing"
+        },
+        "job_responsibilities": {
+          "type": "string",
+          "description": "Job responsibilities. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeJobResponsibilities",
+          "x-change": "existing"
+        },
+        "required_skills": {
+          "type": "string",
+          "description": "Required skills. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeRequiredSkills",
+          "x-change": "existing"
+        },
+        "compensation_and_benefits": {
+          "type": "string",
+          "description": "Free-form full text, not a parsed salary or numeric amount.",
+          "x-export-option": "includeCompensationBenefits",
+          "x-change": "added"
+        },
+        "targeted_degrees_and_disciplines": {
+          "type": "string",
+          "description": "Plain text including collapsed program lists; not an array. UI button text is excluded; headings such as Targeted Clusters may remain.",
+          "x-export-option": "includeTargetedDegrees",
+          "x-change": "added"
+        },
+        "application_deadline": {
+          "type": "string",
+          "description": "Deadline display text from the overview; not ISO 8601 and has no guaranteed timezone.",
+          "x-export-option": "includeApplicationDeadline",
+          "x-change": "added"
+        },
+        "application_documents_required": {
+          "type": "string",
+          "description": "Plain text as displayed, commonly comma-separated; not an array.",
+          "x-export-option": "includeApplicationDocuments",
+          "x-change": "added"
+        },
+        "additional_application_information": {
+          "type": "string",
+          "description": "Additional application information. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeAdditionalApplicationInfo",
+          "x-change": "added"
+        },
+        "application_method": {
+          "type": "string",
+          "description": "Application method. Whitespace-normalized overview text. Empty string when selected but unavailable.",
+          "x-export-option": "includeApplicationMethod",
+          "x-change": "added"
+        },
+        "company_organization": {
+          "type": "string",
+          "description": "Organization from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
+          "x-export-option": "includeCompanyOrganization",
+          "x-change": "added"
+        },
+        "company_division": {
+          "type": "string",
+          "description": "Division from the overview. Its value comes from the overview; its checkbox also controls inclusion of the corresponding list field.",
+          "x-export-option": "includeCompanyDivision",
+          "x-change": "added"
+        },
+        "service_team": {
+          "$ref": "#/$defs/serviceTeam",
+          "description": "Table rows containing ordered string cell values, not objects. Row width and role names are not fixed. Empty when unavailable.",
+          "x-export-option": "includeServiceTeam",
+          "x-change": "added"
+        },
+        "hires_by_faculty": {
+          "$ref": "#/$defs/hiringHistory",
+          "description": "Hires by faculty. Source-dependent structured hiring section or null.",
+          "x-export-option": "includeHiresByFaculty",
+          "x-change": "existing"
+        },
+        "hires_by_student_work_term_number": {
+          "$ref": "#/$defs/hiringHistory",
+          "description": "Hires by student work-term number. Source-dependent structured hiring section or null.",
+          "x-export-option": "includeHiresByWorkTerm",
+          "x-change": "existing"
+        },
+        "most_frequently_hired_programs": {
+          "$ref": "#/$defs/hiringHistory",
+          "description": "Most frequently hired programs. Source-dependent structured hiring section or null.",
+          "x-export-option": "includeFrequentlyHiredPrograms",
+          "x-change": "existing"
+        }
+      },
+      "required": [
+        "posting_id"
+      ]
+    },
+    "serviceTeam": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "hiringHistory": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Already existed before this change. WTR report objects can contain title, description, columns, rows, series, categories, value and data, with source-dependent inner data. Posting/HTML representations contain tables, lists and text_lines. Keep nested data as JSON; no fixed internal table or chart schema is guaranteed.",
+      "additionalProperties": true
+    }
+  }
+}

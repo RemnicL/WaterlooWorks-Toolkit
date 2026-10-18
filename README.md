@@ -1,4 +1,46 @@
-# WaterlooWorks JSON Exporter
+# WaterlooWorks Toolkit
+
+将 WaterlooWorks JSON 导出器、SQLite 数据库工具和文件夹分类扩展放在同一个仓库，并附带 JSON 拆分、合并与去重工具。
+
+| 工具 | 位置 | 使用方式 |
+| --- | --- | --- |
+| JSON Exporter | 仓库根目录 | 在 Chrome 扩展管理页加载根目录 |
+| 数据库工具 | [job_database](job_database/README.md) | Python 命令行；仅使用标准库 |
+| 文件夹分类工具 | [folder-debug-extension](folder-debug-extension/README.md) | 作为另一个 Chrome 扩展加载该目录 |
+| JSON 文件处理工具 | [json-tool](json-tool/README.md) | 浏览器打开 `json-tool/index.html` |
+
+## 完整工作流
+
+1. 使用 JSON Exporter 导出当前 WaterlooWorks 筛选结果。
+2. 在仓库根目录运行以下命令，创建本地数据库并导入岗位：
+
+   ```powershell
+   python job_database/jobdb.py init
+   python job_database/jobdb.py import-jobs jobs.json --name first-export --role all
+   python job_database/jobdb.py list --batch first-export
+   ```
+
+3. 根据岗位筛选结果准备 `{"folders": {"SW": ["岗位ID"], "HW": ["岗位ID"]}}` 分类文件；每个岗位只归入一个文件夹，名称须与 WaterlooWorks 中已有的文件夹完全一致。格式见 [分类示例](folder-debug-extension/example-folder-assignments.json)。数据库可导入并重新导出该格式：
+
+   ```powershell
+   python job_database/jobdb.py import-selection categories.json --name first-selection --batch first-export
+   python job_database/jobdb.py export-classification --selection first-selection --output folders.json
+   ```
+
+4. 在文件夹分类扩展中选择 `folders.json` 并执行分配。
+
+数据库工具保存和查询资料，不会自动筛选岗位、生成排名或提交申请。仓库仅包含源码、测试与示例；实际数据库、个人资料、真实岗位导出和个人筛选结果不随工具发布。
+
+## 验证
+
+需要 Node.js 和 Python 3.10 或更高版本。在仓库根目录执行：
+
+```powershell
+node --test options.test.js content_helpers/bootstrapContent.test.js json-tool/splitter-core.test.js folder-debug-extension/content.test.js folder-debug-extension/folder-plan.test.js
+python -m unittest discover -s job_database -p "test_*.py" -v
+```
+
+## JSON Exporter
 
 Minimal Chrome extension extracted from the larger Enghacks project.
 
@@ -35,7 +77,7 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 1. Open `chrome://extensions`
 2. Turn on `Developer mode`
 3. Click `Load unpacked`
-4. Select `E:\Projects\WaterlooWorks-JSON-Exporter`
+4. Select the cloned repository's root directory (the directory containing `manifest.json`).
 
 ## Use
 
@@ -48,7 +90,3 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 ## Database import contract
 
 See [JSON export handoff](docs/json-export-contract.md) for the current contract, including the mandatory Posting ID, changes introduced by `157e7f2`, missing/empty-value semantics, and importer considerations. A [JSON Schema](docs/job-export.schema.json) and [synthetic examples](docs/examples/all-sections.json) are included for other processes.
-
-## Tests
-
-Run `node --test options.test.js content_helpers/bootstrapContent.test.js json-tool/splitter-core.test.js folder-debug-extension/content.test.js folder-debug-extension/folder-plan.test.js`.
