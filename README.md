@@ -7,7 +7,7 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 - Reads the currently open WaterlooWorks jobs page
 - Keeps your current filter selection
 - Walks every result page
-- Offers `跳过已申请岗位` (off by default) to exclude postings whose `getPostingData` response confirms `applicationData.hasApplication: true`. Reuses posting-data requests used for hiring history; excluded jobs are not fetched for further detail. If a posting's status cannot be confirmed, the export stops with an error rather than including an unchecked job. When every job is excluded, no file is downloaded.
+- Offers `跳过已申请岗位` (off by default) to exclude postings using the search list's applied marker (`check_circle` next to the job title, rendered from `JobTitle.applied`). Ineligible postings remain exportable: their overview response may legitimately omit `hasApplication`. No extra status requests are needed, and excluded jobs are not fetched for further detail. The Job Title column must be visible and loaded so its marker can be read. When every job is excluded, no file is downloaded.
 - Exports one JSON file with independently selectable content:
   - Posting ID (always included)
   - Search-result row information (`搜索结果列表信息`): title, organization, division, openings, city, level, applications, deadline, and raw row text
