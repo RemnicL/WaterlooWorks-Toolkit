@@ -4,7 +4,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const exportStatus = document.getElementById("exportStatus");
   const exportOptionInputs = {
     includeBasicInfo: document.getElementById("includeBasicInfo"),
-    includeCurrentPageOnly: document.getElementById("includeCurrentPageOnly")
+    includeCurrentPageOnly: document.getElementById("includeCurrentPageOnly"),
+    skipAppliedJobs: document.getElementById("skipAppliedJobs")
   };
   const sectionOptions = document.getElementById("sectionExportOptions");
   let currentGroup = "";
@@ -132,7 +133,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const jobs = Array.isArray(response.jobs) ? response.jobs : [];
     if (!jobs.length) {
-      throw new Error("No jobs found under the current WaterlooWorks filter.");
+      throw new Error(exportOptions.skipAppliedJobs
+        ? "No unapplied jobs remain under the current WaterlooWorks filter."
+        : "No jobs found under the current WaterlooWorks filter.");
     }
 
     const exportData = {

@@ -4,7 +4,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const test = require("node:test");
 
-function openPopup(stored = {}, storageOverrides = {}) {
+function openPopup(stored = {}, storageOverrides = {}, response = { success: true, jobs: [{ posting_id: "123" }], postingIds: ["123"] }) {
   const elements = [];
   const requests = [];
   const storageCalls = { get: 0, set: [] };
@@ -28,6 +28,7 @@ function openPopup(stored = {}, storageOverrides = {}) {
   add("sectionExportOptions");
   add("includeBasicInfo", true);
   add("includeCurrentPageOnly", false);
+  add("skipAppliedJobs", false);
   const context = vm.createContext({
     document: {
       addEventListener: (_event, listener) => { initialize = listener; },
@@ -52,7 +53,7 @@ function openPopup(stored = {}, storageOverrides = {}) {
         get: async () => ({ status: "complete" }),
         sendMessage: async (_id, message) => {
           requests.push(JSON.parse(JSON.stringify(message)));
-          return { success: true, jobs: [{ posting_id: "123" }], postingIds: ["123"] };
+          return response;
         }
       },
       downloads: { download: async () => 1 }
@@ -126,6 +127,34 @@ test("export uses restored selections without any further storage reads or write
   assert.deepEqual(JSON.parse(await popup.blob().text()), {
     total_jobs: 1, posting_ids: ["123"], jobs: [{ posting_id: "123" }]
   });
+});
+
+test("skip-applied is opt-in, persists across popup opens, and is sent to the exporter", async () => {
+  const stored = {};
+  const popup = openPopup(stored);
+  await popup.ready;
+  assert.equal(popup.input("skipAppliedJobs").checked, false);
+  popup.input("skipAppliedJobs").checked = true;
+  await popup.input("skipAppliedJobs").fire("change");
+  const reopened = openPopup(stored);
+  await reopened.ready;
+  assert.equal(reopened.input("skipAppliedJobs").checked, true);
+  await reopened.input("exportJobsBtn").fire("click");
+  assert.equal(reopened.requests[0].exportOptions.skipAppliedJobs, true);
+});
+
+test("filtering out every job or failing to read status produces a message without a download", async () => {
+  for (const [response, expected] of [
+    [{ success: true, jobs: [], postingIds: [] }, /No unapplied jobs remain/],
+    [{ success: false, error: "Could not determine application status for posting 123. Export stopped." }, /application status/]
+  ]) {
+    const popup = openPopup({ skipAppliedJobs: true }, {}, response);
+    await popup.ready;
+    await popup.input("exportJobsBtn").fire("click");
+    assert.match(popup.input("exportStatus").textContent, expected);
+    assert.equal(popup.blob(), undefined);
+    assert.equal(popup.input("exportJobsBtn").disabled, false);
+  }
 });
 
 test("storage errors are visible and leave the current popup usable", async () => {

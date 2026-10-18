@@ -491,15 +491,22 @@ function bootstrapContentScript() {
   }
 
   async function attachExtraData(jobs, exportOptions) {
+    const skipAppliedJobs = exportOptions.skipAppliedJobs;
     const includeHiringHistory = exportOptions.includeHiresByFaculty
       || exportOptions.includeHiresByWorkTerm
       || exportOptions.includeFrequentlyHiredPrograms;
 
     const overviewToken = await getActionToken("getPostingOverview");
-    const postingDataToken = includeHiringHistory ? await getActionToken("getPostingData") : "";
+    const postingDataToken = (includeHiringHistory || skipAppliedJobs) ? await getActionToken("getPostingData") : "";
     const wtrReportToken = includeHiringHistory ? await getActionToken("getWorkTermRatingReportJson") : "";
 
-    if (!overviewToken) return jobs;
+    if (skipAppliedJobs && !postingDataToken) {
+      throw new Error("Cannot read application status: the posting-data action was not found. Refresh the WaterlooWorks page.");
+    }
+    if (skipAppliedJobs && jobs.some((job) => !cleanText(job.posting_id))) {
+      throw new Error("Cannot check application status for a job without a posting ID.");
+    }
+    if (!overviewToken && !skipAppliedJobs) return jobs;
 
     const postingIds = Array.from(new Set(
       jobs.map((job) => cleanText(job.posting_id)).filter(Boolean)
@@ -507,6 +514,7 @@ function bootstrapContentScript() {
 
     const historyMap = {};
     const extraMap = {};
+    const appliedPostingIds = new Set();
     const concurrency = 6;
     let index = 0;
 
@@ -515,10 +523,24 @@ function bootstrapContentScript() {
         const currentIndex = index++;
         const postingId = postingIds[currentIndex];
 
+        let checkedPostingData = null;
+        if (skipAppliedJobs) {
+          checkedPostingData = await fetchPostingJson(postingId, postingDataToken);
+          if (String(checkedPostingData?.id) !== postingId
+            || typeof checkedPostingData?.applicationData?.hasApplication !== "boolean") {
+            throw new Error(`Could not determine application status for posting ${postingId}. Export stopped.`);
+          }
+          if (checkedPostingData.applicationData.hasApplication) {
+            appliedPostingIds.add(postingId);
+            continue;
+          }
+        }
+
         try {
           const [overviewHtml, postingData] = await Promise.all([
             fetchOverviewHtml(postingId, overviewToken),
-            postingDataToken ? fetchPostingJson(postingId, postingDataToken) : Promise.resolve(null)
+            skipAppliedJobs ? Promise.resolve(checkedPostingData)
+              : postingDataToken ? fetchPostingJson(postingId, postingDataToken) : Promise.resolve(null)
           ]);
 
           extraMap[postingId] = getExtraFieldsFromOverviewHtml(overviewHtml);
@@ -567,9 +589,11 @@ function bootstrapContentScript() {
     for (let i = 0; i < Math.min(concurrency, postingIds.length); i += 1) {
       workers.push(worker());
     }
-    await Promise.all(workers);
+    const results = await Promise.allSettled(workers);
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
 
-    return jobs.map((job) => ({
+    return jobs.filter((job) => !appliedPostingIds.has(cleanText(job.posting_id))).map((job) => ({
       ...job,
       ...(includeHiringHistory ? {
         hiring_history: historyMap[job.posting_id] || {
@@ -657,7 +681,7 @@ function bootstrapContentScript() {
     return {
       jobs: selectExportFields(enriched, exportOptions),
       postingIds: Array.from(new Set(
-        all.map((job) => cleanText(job.posting_id)).filter(Boolean)
+        enriched.map((job) => cleanText(job.posting_id)).filter(Boolean)
       ))
     };
   }

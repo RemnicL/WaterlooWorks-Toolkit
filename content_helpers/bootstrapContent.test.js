@@ -9,7 +9,7 @@ function loadHelpers(globals = {}) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../export-fields.js"), "utf8"), context);
   const source = fs.readFileSync(path.join(__dirname, "bootstrapContent.js"), "utf8")
     .replace("  chrome.runtime.onMessage.addListener", `
-      globalThis.helpers = { selectExportFields, getExtraFieldsFromOverviewHtml };
+      globalThis.helpers = { selectExportFields, getExtraFieldsFromOverviewHtml, exportFilteredJobs };
       return;
       chrome.runtime.onMessage.addListener`);
   vm.runInContext(`${source}\nbootstrapContentScript();`, context);
@@ -29,6 +29,109 @@ test("each section option exports its own field alongside the mandatory posting 
     assert.equal(result.posting_id, "123");
     assert.equal(result[field], group === "Hiring history" ? job.hiring_history[field] : job[field]);
   }
+});
+
+function prepareExport(responses, { history = false, postingToken = true, overviewToken = true, ids = Object.keys(responses) } = {}) {
+  const requests = [];
+  const rows = ids.map((id) => ({
+    querySelector: (selector) => selector.includes("dataViewerSelection") ? { value: id } : null,
+    querySelectorAll: () => [{ innerText: `Job ${id}` }]
+  }));
+  const table = { querySelectorAll: (selector) => selector === "thead th"
+    ? [{ innerText: "ID" }, { innerText: "Job Title" }] : rows };
+  const { helpers } = loadHelpers({
+    URLSearchParams,
+    setTimeout: (resolve) => resolve(),
+    document: {
+      documentElement: { innerHTML: [
+        overviewToken ? "getPostingOverview() { action: 'overview' }" : "",
+        postingToken ? "getPostingData() { action: 'posting' }" : "",
+        "getWorkTermRatingReportJson() { action: 'report' }"
+      ].join("\n") },
+      scripts: [],
+      querySelector: (selector) => selector.includes("table.data-viewer-table") ? table : null,
+      querySelectorAll: () => []
+    },
+    fetch: async (_url, options) => {
+      const request = Object.fromEntries(new URLSearchParams(options.body));
+      requests.push(request);
+      const data = responses[request.postingId];
+      if (request.action === "posting" && data instanceof Error) throw data;
+      return {
+        ok: data?.httpError !== true,
+        text: async () => "",
+        json: async () => {
+          if (data?.invalidJson) throw new Error("not JSON");
+          return request.action === "report" ? { sections: [] } : data;
+        }
+      };
+    }
+  });
+  return {
+    requests,
+    run: (skipAppliedJobs = true) => helpers.exportFilteredJobs({
+      includeCurrentPageOnly: true, includeHiresByFaculty: history, skipAppliedJobs
+    })
+  };
+}
+
+test("skip-applied filters jobs and posting IDs, without fetching details of applied jobs", async () => {
+  const fixture = prepareExport({
+    "123": { id: "123", applicationData: { hasApplication: true } },
+    "456": { id: "456", applicationData: { hasApplication: false } }
+  });
+  const result = await fixture.run();
+  assert.deepEqual(Array.from(result.jobs, (job) => job.posting_id), ["456"]);
+  assert.deepEqual(Array.from(result.postingIds), ["456"]);
+  assert.deepEqual(fixture.requests.filter((request) => request.action === "overview").map((request) => request.postingId), ["456"]);
+  assert.equal("has_applied" in result.jobs[0], false);
+});
+
+test("turning skip-applied off keeps every job and adds no status requests", async () => {
+  const fixture = prepareExport({
+    "123": { id: "123", applicationData: { hasApplication: true } },
+    "456": { id: "456", applicationData: { hasApplication: false } }
+  });
+  const result = await fixture.run(false);
+  assert.deepEqual(Array.from(result.postingIds), ["123", "456"]);
+  assert.equal(result.jobs.length, 2);
+  assert.equal(fixture.requests.filter((request) => request.action === "posting").length, 0);
+});
+
+test("skip-applied reuses posting data for hiring history", async () => {
+  const fixture = prepareExport({
+    "123": { id: "123", applicationData: { hasApplication: true }, divId: "company" },
+    "456": { id: "456", applicationData: { hasApplication: false }, divId: "company" }
+  }, { history: true });
+  const result = await fixture.run();
+  assert.equal(result.jobs.length, 1);
+  assert.equal(fixture.requests.filter((request) => request.action === "posting").length, 2);
+  assert.equal(fixture.requests.filter((request) => request.action === "report").length, 1);
+});
+
+test("skip-applied also works without an overview token and returns empty results when all have applied", async () => {
+  const fixture = prepareExport({
+    "123": { id: "123", applicationData: { hasApplication: true } }
+  }, { overviewToken: false });
+  const result = await fixture.run();
+  assert.equal(result.jobs.length, 0);
+  assert.equal(result.postingIds.length, 0);
+  assert.equal(fixture.requests.length, 1);
+});
+
+test("skip-applied stops if a status is unknown, malformed, mismatched, or unavailable", async () => {
+  for (const response of [
+    { id: "123" },
+    { id: "wrong-id", applicationData: { hasApplication: false } },
+    { id: "123", applicationData: { hasApplication: "false" } },
+    { httpError: true },
+    { invalidJson: true },
+    new Error("network unavailable")
+  ]) {
+    await assert.rejects(prepareExport({ "123": response }).run(), /application status|network unavailable/i);
+  }
+  await assert.rejects(prepareExport({ "123": {} }, { postingToken: false }).run(), /application status/i);
+  await assert.rejects(prepareExport({ "": {} }).run(), /posting ID/i);
 });
 
 test("unchecking every option retains only the posting ID", () => {

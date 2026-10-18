@@ -7,6 +7,7 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 - Reads the currently open WaterlooWorks jobs page
 - Keeps your current filter selection
 - Walks every result page
+- Offers `跳过已申请岗位` (off by default) to exclude postings whose `getPostingData` response confirms `applicationData.hasApplication: true`. Reuses posting-data requests used for hiring history; excluded jobs are not fetched for further detail. If a posting's status cannot be confirmed, the export stops with an error rather than including an unchecked job. When every job is excluded, no file is downloaded.
 - Exports one JSON file with independently selectable content:
   - Posting ID (always included)
   - Search-result row information (`搜索结果列表信息`): title, organization, division, openings, city, level, applications, deadline, and raw row text
@@ -16,7 +17,7 @@ Minimal Chrome extension extracted from the larger Enghacks project.
   - Service team (table rows, each exported as an array of cell values)
   - Individual hiring-history fields: `hires_by_faculty`, `hires_by_student_work_term_number`, and `most_frequently_hired_programs`
 - Reads each overview field from its own HTML container, including full descriptions and collapsed targeted-program lists
-- Restores checkbox selections from local extension storage whenever the popup opens, and saves each change immediately, including the current-page-only option. Storage is not read or written during job collection. Options without saved values retain their original defaults (all content selected; current-page-only off).
+- Restores checkbox selections from local extension storage whenever the popup opens, and saves each change immediately, including the current-page-only and skip-applied options. Storage is not read or written during job collection. Options without saved values retain their original defaults (all content selected; current-page-only and skip-applied off).
 - Unchecking an option omits its optional fields from each job. Posting ID is always included, even when every option is unchecked. Selected fields absent from a posting export as empty strings, an empty array for `service_team`, or `null` for hiring history.
 
 ## What was removed
@@ -41,7 +42,7 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 1. Open WaterlooWorks jobs page
 2. Apply your desired filter
 3. Open the extension popup
-4. Choose which job information to include. Select `Export jobs from the current page only` to skip all other result pages.
+4. Choose which job information to include. Select `Export jobs from the current page only` to skip all other result pages, and `跳过已申请岗位` to omit jobs already applied to by the signed-in user.
 5. Click `Download Current Filter as JSON`
 
 ## Database import contract
