@@ -1,30 +1,30 @@
-# 数据库导入交接：JSON 导出结构变更
+# Database Import Handoff: JSON Export Contract
 
-本文描述**当前导出行为**，包括功能提交 `157e7f2` 新增的板块，以及后续的 Posting ID 始终导出、列表开关改名和勾选配置保存。JSON 中未加入版本号。
+This document describes **current exporter behavior**, including the sections added in commit `157e7f2` and subsequent changes making Posting ID mandatory, renaming the search-result option, and persisting checkbox selections. Exported JSON does not contain a version number.
 
-当前更新：`posting_id` 是每条职位记录的必填属性，不再由复选框控制；原 Basic job information 开关已改名为“搜索结果列表信息”。该开关启用后，列表中的名称、公司、部门、人数、城市、级别、截止时间仍须对应内容选项被勾选才会导出；申请人数 `apps` 随列表开关导出，`raw_text` 仅由 ID 和实际选中的列表字段重新拼接。全部复选框（包括仅导出当前页）会自动保存到本机扩展存储，并在下次打开面板时恢复。没有已保存值的选项继续使用原默认配置。
+`posting_id` is required in every job record and is no longer controlled by a checkbox. The former basic-information option now covers search-result row information (`includeBasicInfo`). Even with that option enabled, title, organization, division, openings, city, level, and deadline require their corresponding content options. Application count (`apps`) follows the row-information option; `raw_text` is rebuilt from the ID and selected list values only. All checkbox choices, including current-page-only, are saved in local extension storage and restored when the popup opens. Options without saved values retain their original defaults.
 
-新增筛选选项“跳过已申请岗位”（内部名称 `skipAppliedJobs`），默认关闭并支持记忆。选中后，导出器读取搜索列表职位名称旁由 `JobTitle.applied` 控制的 `check_circle` 已申请标记，在抓取详情前排除已经申请的职位；`jobs`、`posting_ids` 和 `total_jobs` 都只描述保留的职位。没有申请资格与已经申请是不同状态：例如 493499 的详情接口合法返回 `applicationData: {"canApply": false}` 而不提供 `hasApplication`，不会因此中断或排除该职位。列表的 Job Title 列须可见并已加载；无法识别该列的职位链接或缺失职位 ID 时，导出报错。全部被排除时不下载空文件。此选项不增加 `has_applied` 等 JSON 字段，不改变字段类型。数据库导入端不应把本次未出现的职位视为删除指令，因为它们可能只是被筛选排除了。
+The skip-applied option (`skipAppliedJobs`) is off by default and is also remembered. When enabled, the exporter reads the `check_circle` marker next to each job title, controlled by `JobTitle.applied`, and excludes applied jobs before fetching details. `jobs`, `posting_ids`, and `total_jobs` describe retained jobs only. Being ineligible and having applied are different states: posting 493499 can legitimately return `applicationData: {"canApply": false}` without `hasApplication`, without stopping the export or excluding that posting. The Job Title column must be visible and loaded. An unrecognizable title column or missing posting ID causes an export error. If every posting is excluded, no empty file is downloaded. This option adds no fields such as `has_applied` and changes no field types. Importers must not interpret omitted postings as deletion instructions: they may simply have been filtered out.
 
-## 给另一个进程的任务说明
+## Handoff instructions for another process
 
-可以直接将下面这段话交给负责数据库导入的进程，并让它访问同目录中的文件：
+Provide the following instructions, together with access to the files in this directory, to a process responsible for database import:
 
-> 请根据 `docs/json-export-contract.md` 和 `docs/job-export.schema.json`，检查并更新 WaterlooWorks JSON 的数据库导入逻辑。对照 `docs/examples/all-sections.json`、`docs/examples/selected-sections.json` 和 `docs/examples/id-only.json` 理解全量字段、部分字段和仅保留 ID 的区别。顶层结构不变，职位最多由 18 个字段扩展为 40 个；当前 `posting_id` 始终存在，其余 39 个职位字段可能因取消勾选而缺失。保留字符串 ID，区分属性缺失、空字符串、空数组和 null，避免部分导入意外清空已有数据。不要将 `posting_ids` 与 `jobs` 按下标强行配对；按每条记录的 `posting_id` 识别职位，并验证其非空。请先检查现有数据库和导入器，再确定字段映射与迁移，并验证新增字段、长文本、结构化招聘历史和部分字段更新。这里描述的是导出端事实；后文的数据库处理策略是建议，尚未在导入端实现。
+> Review the WaterlooWorks importer against `docs/json-export-contract.md` and `docs/job-export.schema.json`. Compare `docs/examples/all-sections.json`, `docs/examples/selected-sections.json`, and `docs/examples/id-only.json` to understand full, partial, and ID-only exports. The top-level structure is unchanged; the job format expanded from 18 to 40 fields. `posting_id` is always present, while the other 39 fields may be omitted when their options are unchecked. Preserve string IDs and distinguish missing properties, empty strings, empty arrays, and null so partial imports do not accidentally clear stored data. Identify jobs by each record's nonempty `posting_id`; do not pair `posting_ids` and `jobs` by array position. Inspect the existing database and importer before deciding field mappings or migrations. Verify new fields, long text, structured hiring history, and partial updates. This document describes exporter behavior; consult the database tool's own documentation for its implemented import policy.
 
-## 机器可读材料
+## Machine-readable materials
 
-- `job-export.schema.json`：JSON Schema Draft 2020-12，覆盖当前 40 个职位字段及类型。
-- 单开关属性的 `x-export-option` 标注对应复选框。列表中与详情成对的属性使用 `x-export-requires` 列出必须同时开启的两个选项（`includeBasicInfo` 加对应内容选项）。`posting_id` 使用 `x-always-exported: true` 注解，没有对应复选框。
-- `x-change` 为 `added` 的是此次新增字段，为 `existing` 的是既有字段。两者是 Schema 注解，不会出现在导出数据中。
-- `examples/all-sections.json`：开启所有内容选项的合成示例，包含 40 个字段。
-- `examples/selected-sections.json`：仅开启搜索结果列表信息、职位简介、服务团队，输出 ID、`apps`、筛选后的 `raw_text`、简介和服务团队。未选择的名称、城市、级别等列表和详情字段均缺失。
-- `examples/id-only.json`：取消所有内容选项后，仅保留 `posting_id` 的合成示例。
-- 示例不包含真实职位或个人信息，不应作为真实数据导入生产库。
+- [`job-export.schema.json`](job-export.schema.json): JSON Schema Draft 2020-12 covering the current 40 job fields and their types.
+- `x-export-option` identifies a field's checkbox when a single option controls it. Paired list fields use `x-export-requires` to identify both required options: `includeBasicInfo` and the corresponding content option. `posting_id` has `x-always-exported: true` and no checkbox.
+- `x-change: added` identifies fields introduced by the section expansion; `existing` identifies earlier fields. These are schema annotations and do not appear in exported data.
+- [`examples/all-sections.json`](examples/all-sections.json): a synthetic 40-field example with every content option enabled.
+- [`examples/selected-sections.json`](examples/selected-sections.json): only row information, job summary, and service team are selected. The output includes the ID, `apps`, filtered `raw_text`, summary, and service team. Unselected list and detail fields such as title, city, and level are absent.
+- [`examples/id-only.json`](examples/id-only.json): a synthetic example containing only `posting_id` after every content option is unchecked.
+- Examples contain no real postings or personal information and must not be imported as real production records.
 
-Schema 的 `additionalProperties: false` 用来发现不属于当前快照的字段，不代表导出格式永远不会增加字段。职位对象要求 `posting_id` 存在，但仍允许源页面未提供 ID 时出现空字符串；结构验证通过不等于满足数据库导入条件。Schema 也不能验证 `total_jobs` 与数组长度相等、职位身份匹配或更新策略。此前版本可能省略 `posting_id` 的文件不满足当前必填约束。
+The schema's `additionalProperties: false` detects fields outside this snapshot; it does not promise that the format will never expand. Each job must contain `posting_id`, but the schema still permits an empty string if the source page supplied no ID. Structural validation alone does not satisfy database identity requirements. The schema cannot verify matching counts, record identity, or update policy. Older files that omit `posting_id` do not satisfy the current required-field constraint.
 
-## 顶层结构保持不变
+## Top-level structure
 
 ```json
 {
@@ -34,62 +34,62 @@ Schema 的 `additionalProperties: false` 用来发现不属于当前快照的字
 }
 ```
 
-| 属性 | JSON 类型 | 实际含义 |
+| Property | JSON type | Meaning |
 | --- | --- | --- |
-| `total_jobs` | integer | `jobs.length`，不是唯一职位 ID 的数量；扩展界面不会下载空结果 |
-| `posting_ids` | string[] | 遍历顺序下去重后的非空职位 ID；关闭搜索结果列表信息仍会保留此列表 |
-| `jobs` | object[] | 每个职位包含 `posting_id` 及已选字段；全部取消后仍保留 ID，不再输出 `{}` |
+| `total_jobs` | integer | `jobs.length`, rather than the number of unique IDs; the extension does not download empty results |
+| `posting_ids` | string[] | Nonempty IDs, deduplicated in traversal order; retained even when row information is disabled |
+| `jobs` | object[] | Each record contains `posting_id` and selected fields; disabling all content options leaves the ID rather than `{}` |
 
-导出数据中仍没有 `schema_version`、`exportOptions`、抓取成功标记、来源时间或字段错误状态。不能仅凭某个新字段缺失判断文件来自旧版，因为新版也允许取消该字段。
+Exports contain no `schema_version`, `exportOptions`, scrape-success flag, observation timestamp, or field-error status. A missing field alone does not identify an older export, because current options can also omit it.
 
-## 字段变化清单
+## Field changes
 
-既有 18 个字段未重命名、未删除，JSON 类型不变。新增 22 个字段，其中 21 个是字符串，`service_team` 是二维字符串数组。默认开启全部内容选项，因此正常完整记录现在有 40 个属性。
+The original 18 fields retain their names and JSON types. The expansion added 22 fields: 21 strings and the two-dimensional string array `service_team`. All content options are enabled by default, so a complete record normally contains 40 properties.
 
-### 既有列表信息：10 个字符串，其中 ID 始终导出
+### Existing list information: 10 strings, with ID always included
 
-`posting_id`、`title`、`organization`、`division`、`openings`、`city`、`level`、`apps`、`app_deadline`、`raw_text`。
+`posting_id`, `title`, `organization`, `division`, `openings`, `city`, `level`, `apps`, `app_deadline`, `raw_text`.
 
-这些字段来自搜索结果列表。`posting_id` 始终导出；“搜索结果列表信息”（内部选项名 `includeBasicInfo`）控制是否加入其余列表信息，其中与详情成对的七项还须对应内容选项开启。`apps` 仅由列表开关控制；`raw_text` 由 ID 和选中的列表字段重新拼接，不再无条件包含整行原文。数量字段 `openings`、`apps` 仍是显示文本，不是 JSON 数值。ID 仍是字符串，源页面未提供 ID 时导出 `""`。
+These fields come from the search-result list. `posting_id` is always included. `includeBasicInfo` controls the remaining list fields, and the seven fields paired with detail values also require their content options. `apps` requires only the list option. `raw_text` is rebuilt from the ID and selected list values rather than unconditionally copying the whole row. Counts such as `openings` and `apps` remain display strings, not JSON numbers. IDs remain strings; a missing source ID is exported as `""`.
 
-### 既有详情：5 个字符串，分别控制
+### Existing details: 5 independently controlled strings
 
-`work_term_duration`、`special_job_requirements`、`required_skills`、`job_responsibilities`、`job_summary`。
+`work_term_duration`, `special_job_requirements`, `required_skills`, `job_responsibilities`, `job_summary`.
 
-- `work_term_duration` 以前无条件导出，现在受 `includeWorkTermDuration` 控制，取消后属性缺失。
-- 其余四项继续使用原有选项。选中但没有取到值时，现在明确输出 `""`；旧代码在详情数据完全缺失时，可能因为值为 `undefined` 而在 JSON 序列化时省略它们。
-- 提取方式从整页文本正则改为各自的 HTML 字段容器。旧的职责、技能、简介、特殊要求曾最多捕获 1200 个字符，工期最多捕获 150 个字符；现在没有这些人为长度限制。
-- 因而同名字段的文本可能比以前更长、更完整，也可能因字段边界正确分离而不同。正文转换为纯文本并合并空白，列表与段落不保留为 HTML 或独立数组。
+- `work_term_duration` was previously unconditional and now follows `includeWorkTermDuration`; disabling the option omits the property.
+- The other four fields retain their existing options. Selected fields without retrieved content explicitly export `""`. Earlier code could omit them during serialization when the entire detail response was missing and their values were `undefined`.
+- Extraction now uses each field's HTML container rather than regular expressions over the whole page. The earlier limits of 1,200 characters for descriptions and 150 characters for duration no longer apply.
+- Text may therefore be longer, more complete, or different because field boundaries are separated correctly. Content is converted to plain text with normalized whitespace; paragraphs and lists are not preserved as HTML or separate arrays.
 
-### 新增详情：21 个字符串
+### Added details: 21 strings
 
-| 新字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `work_term` | 工作学期 |
-| `job_type` | 职位类型 |
-| `job_title` | 详情中的职位名称 |
-| `number_of_job_openings` | 详情中的招聘人数，字符串 |
-| `job_level` | 详情中的级别，合并为文本 |
-| `region` | 地区 |
-| `job_address_line_one` | 地址第一行 |
-| `job_address_line_two` | 地址第二行 |
-| `job_city` | 详情中的城市 |
-| `job_province_state` | 省或州 |
-| `job_postal_zip_code` | 邮政编码 |
-| `job_country` | 国家 |
-| `employment_location_arrangement` | 现场、远程、混合等安排的原始显示文本 |
-| `compensation_and_benefits` | 薪酬福利全文，不是解析后的金额 |
-| `targeted_degrees_and_disciplines` | 目标学位与专业的纯文本，包含折叠列表内容；可能包含 Targeted Clusters 等标题 |
-| `application_deadline` | 详情中的申请截止时间显示文本 |
-| `application_documents_required` | 申请材料显示文本，常以逗号分隔，仍不是数组 |
-| `additional_application_information` | 额外申请信息全文 |
-| `application_method` | 申请方式显示文本 |
-| `company_organization` | 详情中的公司名称 |
-| `company_division` | 详情中的部门 |
+| `work_term` | Work term |
+| `job_type` | Job type |
+| `job_title` | Title from the posting overview |
+| `number_of_job_openings` | Opening count from the overview, as a string |
+| `job_level` | Overview level, combined as text |
+| `region` | Region |
+| `job_address_line_one` | First address line |
+| `job_address_line_two` | Second address line |
+| `job_city` | City from the overview |
+| `job_province_state` | Province or state |
+| `job_postal_zip_code` | Postal or ZIP code |
+| `job_country` | Country |
+| `employment_location_arrangement` | Original display text for on-site, remote, hybrid, or other arrangements |
+| `compensation_and_benefits` | Full compensation and benefits text, not a parsed monetary amount |
+| `targeted_degrees_and_disciplines` | Plain text including collapsed program lists; may include headings such as Targeted Clusters |
+| `application_deadline` | Deadline display text from the overview |
+| `application_documents_required` | Required-document display text, often comma-separated; still a string rather than an array |
+| `additional_application_information` | Full additional application information |
+| `application_method` | Application method display text |
+| `company_organization` | Organization from the overview |
+| `company_division` | Division from the overview |
 
-这些属性全部独立可选。选中但没有取到内容时为 `""`。
+Each property is independently optional. Selected properties without retrieved content export as `""`.
 
-### 新增服务团队：`service_team`
+### Added service team: `service_team`
 
 ```json
 {
@@ -97,44 +97,44 @@ Schema 的 `additionalProperties: false` 用来发现不属于当前快照的字
 }
 ```
 
-数据类型是 `string[][]`，每个内部数组对应表格的一行，每个字符串对应单元格。行列顺序来自页面；代码没有保证固定两列，也没有转换成 `{role, name, phone}`。没有取得内容时为 `[]`，取消选项时整个属性缺失。
+The type is `string[][]`: each inner array represents a table row, and each string represents a cell. Row and column order follow the page. The exporter does not guarantee two columns or convert rows to `{role, name, phone}`. Missing retrieved content exports as `[]`; disabling the option omits the property.
 
-### 既有招聘历史：3 个 object 或 null，分别控制
+### Existing hiring history: 3 independently controlled objects or null
 
-`hires_by_faculty`、`hires_by_student_work_term_number`、`most_frequently_hired_programs`。
+`hires_by_faculty`, `hires_by_student_work_term_number`, `most_frequently_hired_programs`.
 
-它们仍直接位于职位对象内，**没有**新增 `hiring_history` 包装层。内部内容依赖原有数据来源：
+These remain direct job properties, with no new `hiring_history` wrapper. Their contents depend on the source:
 
-- 报表来源可能有 `title`、`description`、`columns`、`rows`、`series`、`categories`、`value`、`data`；图表及表格内部值没有统一类型保证。
-- 页面或职位数据来源可能是 `{ "tables": [], "lists": [], "text_lines": [] }`。
-- 没有取得数据时为 `null`；取消选项时属性缺失。
+- Report data may contain `title`, `description`, `columns`, `rows`, `series`, `categories`, `value`, or `data`. Chart and table values have no single guaranteed internal type.
+- Page or posting data may use `{ "tables": [], "lists": [], "text_lines": [] }`.
+- Unavailable data exports as `null`; disabling an option omits its property.
 
-本次修改未统一这些历史结构。建议导入时保留原始 JSON，不要假定它们始终是同一种图表或数值表。
+The section expansion did not standardize these structures. Preserve their original JSON rather than assuming a fixed chart or numeric-table format.
 
-## 数据库导入必须理解的语义
+## Import semantics
 
-### 属性缺失与空值不是同一个状态
+### Missing properties and empty values are distinct
 
-| JSON 状态 | 导出端含义 | 建议的导入处理，尚未实现 |
+| JSON state | Exporter meaning | Import policy to define |
 | --- | --- | --- |
-| 属性缺失 | 用户未选中该可选字段；部分旧版数据也可能省略未取得的字段。当前版本的 `posting_id` 不会因取消选项而缺失 | 部分更新时保留数据库原值，不因缺失而清空 |
-| `""` | 已选择字符串字段，但内容为空或未成功取得 | 与“未选择”分开处理；是否清空旧值需要明确策略 |
-| `[]` | 已选择服务团队，但没有取得表格行 | 不据此证明公司没有服务团队；明确覆盖策略 |
-| `null` | 已选择招聘历史，但没有取得数据 | 不当成招聘人数为零；明确覆盖策略 |
+| Missing property | The optional field was not selected; some older exports also omitted unavailable fields. Current `posting_id` is never omitted by a checkbox | Preserve the stored value during partial updates |
+| `""` | A string field was selected, but its content was empty or not retrieved | Distinguish it from an unselected field and explicitly decide whether it may clear old data |
+| `[]` | Service team was selected, but no rows were retrieved | Do not infer that the company has no service team; define an overwrite policy |
+| `null` | Hiring history was selected, but no data was retrieved | Do not interpret it as zero hires; define an overwrite policy |
 
-当前抓取链路会在某些失败情况下输出与“页面没有内容”相同的空值，而且不会在 JSON 中注明失败。因此不能把空值当成已经确认的数据删除操作。
+Some retrieval failures produce the same empty values as genuinely empty page content, without recording the failure in JSON. Empty values therefore do not confirm a deletion. The bundled database tool's implemented merge policy is described in its [partial-field import guide](../job_database/README.md#enrich-a-batch-with-partial-fields).
 
-### 按每条记录的 `posting_id` 识别职位
+### Identify jobs by each record's `posting_id`
 
-当前版本不需要开启“搜索结果列表信息”也会保留 `jobs[i].posting_id`。导入时仍建议检查它是非空字符串。不要用职位名称作为主键，不要把 ID 转成数值。
+`jobs[i].posting_id` is retained even when row information is disabled. Importers should require a nonempty string, avoid using the title as a primary key, and preserve IDs without numeric conversion.
 
-`jobs` 使用 `posting_id + title` 去重，`posting_ids` 则只按非空 ID 去重。因此遇到空 ID，或同一 ID 对应不同列表标题时，两者长度可能不同，不能保证 `posting_ids[i]` 就是 `jobs[i]` 的 ID。若记录缺少 `posting_id`，建议隔离或拒绝该记录，不按顶层数组下标猜测。若同一 ID 有多份职位对象，导入器应报告或明确处理冲突。
+The exporter deduplicates `jobs` using `posting_id + title`, while `posting_ids` deduplicates nonempty IDs alone. Empty IDs or one ID with different list titles can therefore produce arrays of different lengths. `posting_ids[i]` is not guaranteed to identify `jobs[i]`. Reject or isolate records with missing IDs rather than guessing by position. Report or explicitly resolve multiple job records sharing one ID.
 
-### 列表值与详情值是不同来源
+### List values and overview values have different sources
 
-以下属性仍来自不同位置，值不保证相同，但现在共用对应的内容开关：取消该内容选项会同时省略两者；开启内容选项会导出详情值，另外开启“搜索结果列表信息”才会附带列表值。列表的 `raw_text` 同样遵循这一选择。
+The following pairs come from different locations and may differ. Each pair shares its content option: disabling that option omits both values; enabling it includes the overview value, while the list value additionally requires `includeBasicInfo`. `raw_text` follows the same selection.
 
-| 列表字段 | 详情字段 |
+| List field | Overview field |
 | --- | --- |
 | `title` | `job_title` |
 | `openings` | `number_of_job_openings` |
@@ -144,16 +144,16 @@ Schema 的 `additionalProperties: false` 用来发现不属于当前快照的字
 | `organization` | `company_organization` |
 | `division` | `company_division` |
 
-导入端可以保留两份来源值，或制定明确的映射优先级；不应仅因名称相似就覆盖既有属性。日期是显示文本，例如 `Oct 21, 2026 9:00 AM`，没有 ISO 格式或时区保证；数字、级别、专业、材料、薪酬也没有自动规范化。
+An importer may preserve both values or define an explicit mapping priority; similar names alone do not justify overwriting one with the other. Dates remain display text such as `Oct 21, 2026 9:00 AM`, without ISO formatting or a guaranteed timezone. Counts, levels, disciplines, documents, and compensation are not automatically normalized either.
 
-## 导入端验收清单
+## Importer acceptance checklist
 
-1. 全选示例的 40 个字段均可接收；新增字段不会被静默丢弃。
-2. 部分字段示例导入已有记录时，未提供的字段按明确的部分更新策略处理。
-3. 缺失、`""`、`[]`、`null` 四种状态能被区分。
-4. 超过 1200 字符的描述可以完整存储；数据库、验证器和导入代码均无旧长度截断。
-5. `service_team` 按二维数组处理，招聘历史保留可变结构的原始 JSON。
-6. 缺失或为空的逐条 ID、重复 ID、数组不对齐等情况会被明确处理。
-7. ID、显示日期、数量、薪酬等不会被不加验证地强制转型。
+1. Accept all 40 fields in the full example without silently discarding added fields.
+2. Apply an explicit partial-update policy when importing the selected-fields example over existing records.
+3. Distinguish missing properties, `""`, `[]`, and `null`.
+4. Preserve descriptions longer than 1,200 characters without old database, validator, or importer truncation.
+5. Store `service_team` as a two-dimensional array and preserve variable hiring-history JSON structures.
+6. Explicitly handle missing or empty per-record IDs, duplicate IDs, and arrays that do not align.
+7. Avoid unvalidated type coercion of IDs, display dates, counts, and compensation.
 
-本文提供交接契约、结构描述和示例；尚未检查或修改下游数据库，也未执行数据库迁移。
+This document defines the exporter contract and importer considerations. Refer to the [database guide](../job_database/README.md) and its tests for the bundled importer's behavior and migration support.

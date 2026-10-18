@@ -1,10 +1,10 @@
-# WaterlooWorks 数据库工具
+# WaterlooWorks Job Database
 
-使用 SQLite 保存岗位快照、筛选与分类集合、排序分析、个人资料版本及申请状态。仅依赖 Python 3.10+ 标准库，无需数据库服务器或第三方包。
+Store job snapshots, screening and classification selections, ranking analyses, personal-facts versions, and application statuses in SQLite. Requires Python 3.10 or later and uses only the standard library; no database server or third-party packages are needed.
 
-本目录从原本地数据库项目提取工具源码、Schema、测试和合成示例，不包含真实数据库、个人排名、筛选报告或依赖原始个人资料的 `bootstrap.py`。首次使用需要初始化并导入自己的资料。下列命令均从仓库根目录执行。
+This directory contains the tool source, schema, tests, and synthetic fixtures extracted from the original local database project. Actual databases, personal rankings, screening reports, and the personal-data-dependent `bootstrap.py` script are not included. Initialize a database and import your own data before use. Run all commands below from the repository root.
 
-## 初始化与导入
+## Initialize and import
 
 ```powershell
 python job_database/jobdb.py init
@@ -14,29 +14,29 @@ python job_database/jobdb.py list --batch first-export
 python job_database/jobdb.py show 900000001 --batch first-export
 ```
 
-默认数据库为 `job_database/applications.sqlite3`，已加入 Git 忽略规则。指定其他文件时，将 `--db 路径` 放在子命令之前，例如 `python job_database/jobdb.py --db other.sqlite3 init`。初始化不会导入示例资料。
+The default database is `job_database/applications.sqlite3`, which is ignored by Git. To use a different file, place `--db PATH` before the subcommand, for example `python job_database/jobdb.py --db other.sqlite3 init`. Initialization does not import sample data. Replace example IDs in these commands with IDs from your own export.
 
-岗位格式见 [导出契约](../docs/json-export-contract.md)、[Schema](job-export.schema.json) 和 [合成示例](fixtures/all-sections.json)。按每条记录的非空字符串 `posting_id` 识别岗位，保留前导零；不按顶层数组位置配对。类型错误、重复 ID、未知字段或不一致的计数会拒绝导入。
+See the [export contract](../docs/json-export-contract.md), [schema](job-export.schema.json), and [synthetic example](fixtures/all-sections.json) for the job format. Jobs are identified by each record's nonempty string `posting_id`, preserving leading zeros; the top-level arrays are not paired by position. Invalid types, duplicate IDs, unknown fields, and inconsistent counts are rejected.
 
-每份导出保存为独立命名批次。同名同源导入不增加记录；内容或元数据变化时需使用新名称。未指定基础批次时，不会自动合并其他批次或删除旧资料。
+Each export is stored as a separately named batch. Reimporting the same source under the same name does not add records; changes to source content or metadata require a new name. Without an explicit base batch, imports do not merge other batches or delete earlier records.
 
-## 部分字段补充
+## Enrich a batch with partial fields
 
 ```powershell
 python job_database/jobdb.py import-jobs selected_sections.json --name enriched --base-batch first-export --role candidate
 python job_database/jobdb.py show 900000001 --batch enriched
 ```
 
-此操作创建新批次，保留基础批次所有岗位，再补充或新增本次岗位。属性缺失、空字符串、空数组、null 不清除已有值；非空字段更新对应字段。原始输入完整保留，可通过 `source_job`、`source_field_states` 和 `base_batch` 追溯。派生批次不自动复制排名、分类或申请记录。
+This creates a new batch containing every job from the base batch, then enriches existing jobs or adds new ones from the input. Missing properties, empty strings, empty arrays, and null do not clear existing values; nonempty values update their fields. Original observations remain available through `source_job`, `source_field_states`, and `base_batch`. Rankings, classifications, and application records are not automatically copied to the derived batch.
 
 ```powershell
 python job_database/jobdb.py export-jobs --batch enriched --output enriched.json
 python job_database/jobdb.py export-jobs --batch enriched --raw --output enrichment_input.json
 ```
 
-普通导出包含合并后的字段；`--raw` 导出本次原始输入。输出路径必须尚不存在。
+The default export contains merged fields. `--raw` exports the original incoming data. Output paths must not already exist.
 
-## 筛选和文件夹分类
+## Screening and folder classification
 
 ```powershell
 python job_database/jobdb.py import-selection major_ids.json --name major --batch first-export --kind major
@@ -45,18 +45,18 @@ python job_database/jobdb.py import-selection selected_ids.json --name screened 
 python job_database/jobdb.py export-jobs --batch first-export --include-selection major --include-selection screened --output candidates.json
 ```
 
-筛选输入接受岗位导出、`{"posting_ids": ["900000001"]}` 或 ID 数组。集合成员需存在于关联批次。多次 `--include-selection` 取并集并去重。
+Selection inputs accept job exports, `{"posting_ids": ["900000001"]}`, or ID arrays. Selection members must exist in the associated batch. Repeating `--include-selection` takes the union and removes duplicates.
 
-文件夹分类使用 `{"folders": {"SW": ["900000001"], "HW": []}}` 格式：
+Folder classification uses the format `{"folders": {"SW": ["900000001"], "HW": []}}`:
 
 ```powershell
 python job_database/jobdb.py import-selection categories.json --name folders --batch first-export --kind classification
 python job_database/jobdb.py export-classification --selection folders --output folders.json
 ```
 
-导出保留类别及类别内 ID 顺序，可交给 [文件夹分类扩展](../folder-debug-extension/README.md)。扩展要求文件夹已存在且名称完全匹配，每个岗位只能出现一次。
+The export preserves category order and ID order within each category and can be loaded into [Folder Importer](../folder-debug-extension/README.md). The extension requires existing folders with exactly matching names, positive integer posting IDs represented as strings, and each posting appearing only once.
 
-## 排名、个人资料和申请状态
+## Rankings, personal facts, and application statuses
 
 ```powershell
 python job_database/jobdb.py save-facts RESUME_FACTS.md --name facts-v1
@@ -65,28 +65,23 @@ python job_database/jobdb.py list --batch first-export --analysis ranking-v1 --s
 python job_database/jobdb.py show 900000001 --batch first-export --facts RESUME_FACTS.md
 ```
 
-仅在分析确实使用该资料版本时指定 `--facts-version`。排名必须从 1 连续递增、ID 唯一且存在于指定批次。支持的 TXT 格式如下，分数是比较指标而非录用概率：
+Specify `--facts-version` only when the analysis actually used that facts version. Ranks must be consecutive starting at 1, IDs must be unique, and every ID must exist in the associated batch. Scores are comparative measures, not hiring probabilities.
 
-```text
-001. Job ID 900000001 | 示例职位 | 示例公司
-建议：建议申请 | 机会优先分：80/100（非概率） | 匹配度：4.1/5
-原因：具体匹配理由和待确认条件。
-建议文书：05 电子硬件／半导体／板卡验证（简历＋求职信）
-```
+The ranking importer currently reads the original structured TXT format with fixed Chinese field labels. It does not accept an English translation of those labels. Each entry starts with `001. Job ID 900000001 | Example role | Example company`, followed by recommendation, opportunity score, fit score, reason, and document-advice fields. See [`parse_ranking` in jobdb.py](jobdb.py#L277) for the exact input grammar before preparing a ranking file. This format restriction concerns imported data; the commands and instructions here are in English.
 
-只有确认实际投递后才记录 `submitted`；导入岗位、分类或排名不会自动产生投递记录：
+Record `submitted` only after confirming that an application was actually submitted. Importing jobs, classifications, or rankings does not automatically create application records:
 
 ```powershell
-python job_database/jobdb.py status 900000001 --batch first-export --state submitted --resume resume.pdf --notes "已手动投递"
+python job_database/jobdb.py status 900000001 --batch first-export --state submitted --resume resume.pdf --notes "Submitted manually"
 ```
 
-状态包括 `unknown`、`planned`、`submitted`、`interview`、`offer`、`rejected`、`withdrawn`、`skipped`。默认未知不能理解为未投递。可用 `--submitted-at` 指定含时区偏移的真实投递时间；未指定的时间、材料路径和备注在更新时保留。
+Available states are `unknown`, `planned`, `submitted`, `interview`, `offer`, `rejected`, `withdrawn`, and `skipped`. The default `unknown` does not mean not submitted. Use `--submitted-at` for a known submission time including its UTC offset. When updating a status, omitted submission times, document paths, and notes are preserved.
 
-## 测试与备份
+## Tests and backups
 
 ```powershell
 python -m unittest discover -s job_database -p "test_*.py" -v
 python job_database/jobdb.py --help
 ```
 
-测试使用临时数据库和合成资料。当前结构版本为 2；已有 v1 数据库可先运行 `init` 完成迁移。备份前关闭数据库写入程序，再复制 SQLite 文件；关联的简历和求职信需单独保存。
+Tests use temporary databases and synthetic data. The current schema version is 2; run `init` on an existing v1 database to migrate it. Before backing up, close programs writing to the database and copy the SQLite file. Back up linked resumes and cover letters separately.

@@ -1,39 +1,58 @@
-# WaterlooWorks JSON 工具
+# WaterlooWorks JSON Utilities
 
-目前实现：
+Browser-based tools for processing WaterlooWorks JSON exports. Files are processed locally in your browser and are not uploaded.
 
-- 读取导出文件、显示工作数量，并按“每个文件包含多少个工作”分割下载；
-- 选择多个导出文件，按照顶部 `posting_ids` 的顺序合并并去重；
-- 按工作 ID、职位、公司、部门、城市、原始文本或全部内容查找，并批量删除匹配项；
-- 比较两个文件，以第一个文件为基准删除第二个文件中的重复工作 ID；
-- 根据逗号、空格或换行分隔的 ID 列表，只保留单个文件中的指定工作。
+## Features
 
-## 使用
+- Split an export into smaller files with a chosen number of jobs per file.
+- Merge multiple exports in `posting_ids` order and remove duplicate IDs.
+- Find and delete jobs by posting ID, title, organization, division, city, raw text, or all job content.
+- Remove jobs from a target file when their IDs also appear in a reference file.
+- Keep only jobs matching a list of IDs separated by commas, spaces, or line breaks.
 
-直接用浏览器打开 `index.html`，选择由本项目导出的 JSON 文件，设置每个分片的工作数量，然后点击“分割并下载”。浏览器第一次批量下载时可能要求授权。
+## Open the tool
 
-每个分片会：
+Open `index.html` directly in a browser. No server or installation is required. The interface may display localized labels; the sections below describe each operation in English.
 
-- 保留原文件的其他顶层字段；
-- 将 `jobs` 限制为当前分片；
-- 更新 `total_jobs`；
-- 同步分割 `posting_ids`（如果原列表不能逐项对应，则从每个工作的 `posting_id` 重建）。
+## Split an export
 
-合并时，每个文件的 `posting_ids` 必须与 `jobs` 逐项对应。结果按照所选文件及其 ID 列表的顺序排列；如果 ID 重复，保留第一次出现的工作。其他顶层元数据以第一个文件为准。
+1. In the first section, select a JSON export created by JSON Exporter.
+2. Set the number of jobs per output file and review the expected file count.
+3. Click the split-and-download button. Allow multiple downloads if your browser prompts you.
 
-批量删除使用不区分大小写的“包含”查找。下载结果会同步更新 `jobs`、`posting_ids` 和 `total_jobs`，不会覆盖原文件。
+Each output file preserves the other top-level properties, limits `jobs` to its own slice, and updates `total_jobs`. It also slices `posting_ids`; if the original list cannot be aligned by position, IDs are rebuilt from each job's `posting_id`.
 
-两文件去重只修改下载结果中的第二个文件。两个输入文件的 `posting_ids` 都必须与 `jobs` 逐项对应。
+## Merge exports
 
-指定 ID 保留使用精确 ID 匹配，结果保持原文件中的工作顺序，并显示未找到的 ID 数量。
+Select at least two exports in the merge section, review the input and output counts, and click the merge-and-download button.
 
-## 扩展方式
+Each file's `posting_ids` must align with `jobs` by position. Results follow the selected file order and each file's ID order. When an ID occurs more than once, the first job is kept. Other top-level metadata comes from the first file.
 
-`splitter-core.js` 是不依赖界面的纯数据处理层，界面层只负责文件读取、参数输入和下载。
+## Delete matching jobs
 
-## 测试
+Select an export, choose the field to search, and enter the search text. Review the matching and remaining counts, then download the filtered file.
 
-安装了 Node.js 时，在此目录运行：
+Search uses case-insensitive substring matching. The download updates `jobs`, `posting_ids`, and `total_jobs` together and does not overwrite the original file.
+
+## Remove duplicates using a reference file
+
+Select the reference file first and the target file second. Review the duplicate count, then download the cleaned target file.
+
+Only the downloaded target data is changed. Both inputs must have `posting_ids` arrays aligned with `jobs` by position.
+
+## Keep specific IDs
+
+Select an export and enter the IDs to keep, separated by commas, spaces, or line breaks. Review the matched count and download the result.
+
+Matching is exact. Jobs retain their original order, and the tool reports how many requested IDs were not found.
+
+## Development
+
+`splitter-core.js` contains the data-processing functions and has no UI dependencies. The interface handles file reads, user input, and downloads.
+
+## Tests
+
+With Node.js installed, run this command from the `json-tool` directory:
 
 ```powershell
 node --test splitter-core.test.js
