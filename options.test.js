@@ -173,7 +173,7 @@ test("storage errors are visible and leave the current popup usable", async () =
 
 test("popup names the search-result fields explicitly and declares the storage permission", () => {
   const html = fs.readFileSync(path.join(__dirname, "options.html"), "utf8");
-  assert.ok(html.includes("搜索结果列表信息"));
+  assert.ok(html.includes("Search-result list information"));
   assert.ok(!html.includes("Basic job information"));
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "manifest.json"), "utf8"));
   assert.ok(manifest.permissions.includes("storage"));

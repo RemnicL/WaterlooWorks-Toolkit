@@ -33,9 +33,9 @@ test("derives posting IDs from jobs when the source list is absent", () => {
 });
 
 test("rejects unsupported data and invalid chunk sizes", () => {
-  assert.throws(() => validateExport([]), /顶层必须是对象/);
-  assert.throws(() => splitExportData({ jobs: [] }, 0), /大于 0 的整数/);
-  assert.throws(() => splitExportData({ jobs: [] }, 1.5), /大于 0 的整数/);
+  assert.throws(() => validateExport([]), /root must be an object/);
+  assert.throws(() => splitExportData({ jobs: [] }, 0), /positive integer/);
+  assert.throws(() => splitExportData({ jobs: [] }, 1.5), /positive integer/);
 });
 
 test("creates stable numbered filenames", () => {
@@ -71,7 +71,7 @@ test("rejects files whose ID list cannot be aligned with jobs", () => {
       { posting_ids: [1], jobs: [{}, {}] },
       { posting_ids: [2], jobs: [{}] }
     ]),
-    /数量不一致/
+    /counts do not match/
   );
 });
 
@@ -110,10 +110,10 @@ test("searches nested job content and posting IDs when using all fields", () => 
 });
 
 test("rejects empty searches and unaligned ID lists during deletion", () => {
-  assert.throws(() => deleteMatchingJobs({ jobs: [] }, "all", "  "), /请输入/);
+  assert.throws(() => deleteMatchingJobs({ jobs: [] }, "all", "  "), /Enter search text/);
   assert.throws(
     () => deleteMatchingJobs({ posting_ids: [1], jobs: [{}, {}] }, "all", "x"),
-    /数量不一致/
+    /counts do not match/
   );
 });
 
@@ -141,14 +141,14 @@ test("removes target jobs whose IDs exist in a reference file", () => {
 test("rejects comparison files with missing or unaligned ID lists", () => {
   assert.throws(
     () => removeJobsFoundInReference({ jobs: [{}] }, { posting_ids: [2], jobs: [{}] }),
-    /基准文件缺少/
+    /Reference file is missing/
   );
   assert.throws(
     () => removeJobsFoundInReference(
       { posting_ids: [1], jobs: [{}] },
       { posting_ids: [2], jobs: [{}, {}] }
     ),
-    /待清理文件.*数量不一致/
+    /Target file.*counts do not match/
   );
 });
 
@@ -174,10 +174,10 @@ test("keeps only requested IDs in the source file order", () => {
 test("accepts numeric requested IDs and rejects unsafe inputs", () => {
   const input = { posting_ids: [101], jobs: [{ title: "A" }] };
   assert.equal(keepJobsByIds(input, [101]).matchedCount, 1);
-  assert.throws(() => keepJobsByIds(input, "  "), /至少输入一个/);
-  assert.throws(() => keepJobsByIds({ jobs: [{}] }, "101"), /缺少 posting_ids/);
+  assert.throws(() => keepJobsByIds(input, "  "), /at least one posting ID/);
+  assert.throws(() => keepJobsByIds({ jobs: [{}] }, "101"), /missing a posting_ids/);
   assert.throws(
     () => keepJobsByIds({ posting_ids: [101], jobs: [{}, {}] }, "101"),
-    /数量不一致/
+    /counts do not match/
   );
 });

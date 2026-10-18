@@ -63,7 +63,7 @@
       const size = core.normalizeChunkSize(chunkSizeInput.value);
       partCount.textContent = String(Math.ceil(loaded.data.jobs.length / size));
       splitButton.disabled = loaded.data.jobs.length === 0;
-      setStatus(loaded.data.jobs.length === 0 ? "文件中没有可分割的工作。" : "");
+      setStatus(loaded.data.jobs.length === 0 ? "There are no jobs to split in this file." : "");
     } catch (error) {
       partCount.textContent = "—";
       splitButton.disabled = true;
@@ -102,7 +102,7 @@
 
     const query = deleteQueryInput.value.trim();
     if (!query) {
-      setDeleteStatus("输入文本后将显示匹配数量。");
+      setDeleteStatus("Enter search text to preview the number of matches.");
       return;
     }
 
@@ -112,11 +112,11 @@
       deleteOutputCount.textContent = String(deleteResult.data.jobs.length);
       deleteButton.disabled = deleteResult.deletedCount === 0;
       setDeleteStatus(deleteResult.deletedCount
-        ? `找到 ${deleteResult.deletedCount} 个匹配项。`
-        : "没有找到匹配项。"
+        ? `Matches found: ${deleteResult.deletedCount}.`
+        : "No matches found."
       );
     } catch (error) {
-      setDeleteStatus(`无法筛选：${error.message}`, true);
+      setDeleteStatus(`Could not filter jobs: ${error.message}`, true);
     }
   }
 
@@ -138,7 +138,7 @@
     const referenceFile = compareReferenceFileInput.files?.[0];
     const targetFile = compareTargetFileInput.files?.[0];
     if (!referenceFile || !targetFile) {
-      setCompareStatus("请选择基准文件和待清理文件。");
+      setCompareStatus("Select a reference file and a target file.");
       return;
     }
 
@@ -155,11 +155,11 @@
       compareOutputCount.textContent = String(compareResult.data.jobs.length);
       compareButton.disabled = compareResult.duplicateCount === 0;
       setCompareStatus(compareResult.duplicateCount
-        ? `找到 ${compareResult.duplicateCount} 个重复工作。`
-        : "两个文件之间没有重复工作。"
+        ? `Duplicate jobs found: ${compareResult.duplicateCount}.`
+        : "No duplicate jobs found between the files."
       );
     } catch (error) {
-      setCompareStatus(`无法比较：${error.message}`, true);
+      setCompareStatus(`Could not compare files: ${error.message}`, true);
     }
   }
 
@@ -176,7 +176,7 @@
     if (!keepLoaded) return;
 
     if (!keepIdsInput.value.trim()) {
-      setKeepStatus("输入工作 ID 后将显示匹配数量。");
+      setKeepStatus("Enter posting IDs to preview the number of matches.");
       return;
     }
 
@@ -186,18 +186,18 @@
       keepOutputCount.textContent = String(keepResult.matchedCount);
       keepButton.disabled = keepResult.matchedCount === 0;
       setKeepStatus(keepResult.missingIds.length
-        ? `匹配 ${keepResult.matchedCount} 个工作；${keepResult.missingIds.length} 个 ID 未找到。`
-        : `已匹配全部 ${keepResult.matchedCount} 个工作。`
+        ? `Matching jobs: ${keepResult.matchedCount}; IDs not found: ${keepResult.missingIds.length}.`
+        : `All requested IDs matched. Jobs found: ${keepResult.matchedCount}.`
       );
     } catch (error) {
-      setKeepStatus(`无法筛选：${error.message}`, true);
+      setKeepStatus(`Could not filter jobs: ${error.message}`, true);
     }
   }
 
   fileInput.addEventListener("change", async () => {
     loaded = null;
     const file = fileInput.files && fileInput.files[0];
-    fileName.textContent = file ? file.name : "尚未选择";
+    fileName.textContent = file ? file.name : "No file selected";
     jobCount.textContent = "—";
     setStatus("");
 
@@ -213,7 +213,7 @@
       updateSummary();
     } catch (error) {
       updateSummary();
-      setStatus(`无法读取文件：${error.message}`, true);
+      setStatus(`Could not read file: ${error.message}`, true);
     }
   });
 
@@ -227,7 +227,7 @@
       parts.forEach((part, index) => {
         downloadJson(part, core.partFilename(loaded.name, index, parts.length));
       });
-      setStatus(`已生成 ${parts.length} 个文件。若浏览器询问，请允许下载多个文件。`);
+      setStatus(`Files generated: ${parts.length}. Allow multiple downloads if your browser prompts you.`);
     } catch (error) {
       setStatus(error.message, true);
     }
@@ -249,7 +249,7 @@
         try {
           return core.validateExport(JSON.parse(await file.text()));
         } catch (error) {
-          throw new Error(`${file.name}：${error.message}`);
+          throw new Error(`${file.name}: ${error.message}`);
         }
       }));
       mergeInputCount.textContent = String(sources.reduce((sum, source) => sum + source.jobs.length, 0));
@@ -257,18 +257,18 @@
       mergeOutputCount.textContent = String(merged.data.jobs.length);
       mergeButton.disabled = false;
       setMergeStatus(merged.duplicateCount
-        ? `发现 ${merged.duplicateCount} 个重复 ID，将保留第一次出现的工作。`
-        : "文件可以合并。"
+        ? `Duplicate IDs found: ${merged.duplicateCount}. The first job for each ID will be kept.`
+        : "Files are ready to merge."
       );
     } catch (error) {
-      setMergeStatus(`无法合并：${error.message}`, true);
+      setMergeStatus(`Could not merge files: ${error.message}`, true);
     }
   });
 
   mergeButton.addEventListener("click", () => {
     if (!merged) return;
     downloadJson(merged.data, "waterlooworks_jobs_merged.json");
-    setMergeStatus(`已下载 ${merged.data.jobs.length} 个工作的合并文件。`);
+    setMergeStatus(`Downloaded the merged file with ${merged.data.jobs.length} jobs.`);
   });
 
   deleteFileInput.addEventListener("change", async () => {
@@ -289,7 +289,7 @@
       deleteInputCount.textContent = String(data.jobs.length);
       updateDeletePreview();
     } catch (error) {
-      setDeleteStatus(`无法读取文件：${error.message}`, true);
+      setDeleteStatus(`Could not read file: ${error.message}`, true);
     }
   });
 
@@ -300,7 +300,7 @@
     if (!deleteLoaded || !deleteResult) return;
     const baseName = deleteLoaded.name.replace(/\.json$/i, "");
     downloadJson(deleteResult.data, `${baseName}_filtered.json`);
-    setDeleteStatus(`已删除 ${deleteResult.deletedCount} 个匹配项并下载新文件。`);
+    setDeleteStatus(`Removed ${deleteResult.deletedCount} matching jobs and downloaded a new file.`);
   });
 
   compareReferenceFileInput.addEventListener("change", updateComparisonPreview);
@@ -310,7 +310,7 @@
     if (!compareResult) return;
     const baseName = compareTargetName.replace(/\.json$/i, "");
     downloadJson(compareResult.data, `${baseName}_deduplicated.json`);
-    setCompareStatus(`已删除 ${compareResult.duplicateCount} 个重复工作并下载新文件。`);
+    setCompareStatus(`Removed ${compareResult.duplicateCount} duplicate jobs and downloaded a new file.`);
   });
 
   keepFileInput.addEventListener("change", async () => {
@@ -331,7 +331,7 @@
       keepInputCount.textContent = String(data.jobs.length);
       updateKeepPreview();
     } catch (error) {
-      setKeepStatus(`无法读取文件：${error.message}`, true);
+      setKeepStatus(`Could not read file: ${error.message}`, true);
     }
   });
 
@@ -341,6 +341,6 @@
     if (!keepLoaded || !keepResult) return;
     const baseName = keepLoaded.name.replace(/\.json$/i, "");
     downloadJson(keepResult.data, `${baseName}_selected.json`);
-    setKeepStatus(`已保留 ${keepResult.matchedCount} 个工作并下载新文件。`);
+    setKeepStatus(`Kept ${keepResult.matchedCount} matching jobs and downloaded a new file.`);
   });
 })();

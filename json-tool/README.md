@@ -12,7 +12,7 @@ Browser-based tools for processing WaterlooWorks JSON exports. Files are process
 
 ## Open the tool
 
-Open `index.html` directly in a browser. No server or installation is required. The interface may display localized labels; the sections below describe each operation in English.
+Open `index.html` directly in a browser. No server or installation is required. All interface labels, status messages, and validation errors are in English.
 
 ## Split an export
 

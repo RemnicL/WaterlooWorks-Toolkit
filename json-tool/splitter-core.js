@@ -7,13 +7,13 @@
 
   function validateExport(data) {
     if (!data || typeof data !== "object" || Array.isArray(data)) {
-      throw new TypeError("JSON 顶层必须是对象。");
+      throw new TypeError("The JSON root must be an object.");
     }
     if (!Array.isArray(data.jobs)) {
-      throw new TypeError("JSON 必须包含 jobs 数组。");
+      throw new TypeError("The JSON must contain a jobs array.");
     }
     if ("posting_ids" in data && !Array.isArray(data.posting_ids)) {
-      throw new TypeError("posting_ids 必须是数组。");
+      throw new TypeError("posting_ids must be an array.");
     }
     return data;
   }
@@ -21,7 +21,7 @@
   function normalizeChunkSize(value) {
     const size = Number(value);
     if (!Number.isSafeInteger(size) || size < 1) {
-      throw new RangeError("每个文件的工作数量必须是大于 0 的整数。");
+      throw new RangeError("Jobs per file must be a positive integer.");
     }
     return size;
   }
@@ -58,7 +58,7 @@
 
   function mergeExportData(inputs) {
     if (!Array.isArray(inputs) || inputs.length < 2) {
-      throw new RangeError("请至少选择两个 JSON 文件。");
+      throw new RangeError("Select at least two JSON files.");
     }
 
     const sources = inputs.map(validateExport);
@@ -69,16 +69,16 @@
 
     sources.forEach((source, fileIndex) => {
       if (!Array.isArray(source.posting_ids)) {
-        throw new TypeError(`第 ${fileIndex + 1} 个文件缺少 posting_ids 数组。`);
+        throw new TypeError(`File ${fileIndex + 1} is missing a posting_ids array.`);
       }
       if (source.posting_ids.length !== source.jobs.length) {
-        throw new RangeError(`第 ${fileIndex + 1} 个文件的 posting_ids 与 jobs 数量不一致。`);
+        throw new RangeError(`File ${fileIndex + 1}: posting_ids and jobs counts do not match.`);
       }
 
       source.posting_ids.forEach((id, jobIndex) => {
         const key = String(id == null ? "" : id).trim();
         if (!key) {
-          throw new TypeError(`第 ${fileIndex + 1} 个文件包含空的工作 ID。`);
+          throw new TypeError(`File ${fileIndex + 1} contains an empty posting ID.`);
         }
         if (seenIds.has(key)) {
           duplicateCount += 1;
@@ -107,10 +107,10 @@
     const searchField = String(field || "all");
     const searchText = String(query || "").trim().toLocaleLowerCase();
     if (!searchText) {
-      throw new RangeError("请输入要查找的文本。");
+      throw new RangeError("Enter search text.");
     }
     if (Array.isArray(source.posting_ids) && source.posting_ids.length !== source.jobs.length) {
-      throw new RangeError("posting_ids 与 jobs 数量不一致，无法安全删除条目。");
+      throw new RangeError("posting_ids and jobs counts do not match; entries cannot be safely deleted.");
     }
 
     const hasAlignedIds = Array.isArray(source.posting_ids);
@@ -153,15 +153,15 @@
     const target = validateExport(targetInput);
 
     [reference, target].forEach((source, index) => {
-      const label = index === 0 ? "基准文件" : "待清理文件";
+      const label = index === 0 ? "Reference file" : "Target file";
       if (!Array.isArray(source.posting_ids)) {
-        throw new TypeError(`${label}缺少 posting_ids 数组。`);
+        throw new TypeError(`${label} is missing a posting_ids array.`);
       }
       if (source.posting_ids.length !== source.jobs.length) {
-        throw new RangeError(`${label}的 posting_ids 与 jobs 数量不一致。`);
+        throw new RangeError(`${label}: posting_ids and jobs counts do not match.`);
       }
       if (source.posting_ids.some((id) => !String(id ?? "").trim())) {
-        throw new TypeError(`${label}包含空的工作 ID。`);
+        throw new TypeError(`${label} contains an empty posting ID.`);
       }
     });
 
@@ -193,10 +193,10 @@
   function keepJobsByIds(input, requestedIds) {
     const source = validateExport(input);
     if (!Array.isArray(source.posting_ids)) {
-      throw new TypeError("文件缺少 posting_ids 数组。");
+      throw new TypeError("The file is missing a posting_ids array.");
     }
     if (source.posting_ids.length !== source.jobs.length) {
-      throw new RangeError("posting_ids 与 jobs 数量不一致。");
+      throw new RangeError("posting_ids and jobs counts do not match.");
     }
 
     const rawIds = Array.isArray(requestedIds)
@@ -205,7 +205,7 @@
     const normalizedIds = rawIds.map((id) => String(id ?? "").trim()).filter(Boolean);
     const requested = new Set(normalizedIds);
     if (!requested.size) {
-      throw new RangeError("请至少输入一个要保留的工作 ID。");
+      throw new RangeError("Enter at least one posting ID to keep.");
     }
 
     const keptIds = [];

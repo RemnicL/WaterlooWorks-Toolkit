@@ -283,23 +283,23 @@ def parse_ranking(text):
     for index, heading in enumerate(headings):
         block = text[heading.start():headings[index + 1].start() if index + 1 < len(headings) else len(text)]
         lines = block.splitlines()
-        def line(prefix):
+        def line(prefix, label):
             matches = [s[len(prefix):].strip() for s in lines if s.startswith(prefix)]
             if len(matches) != 1:
-                raise ValueError(f'Expected one {prefix} line for {heading[2]}.')
+                raise ValueError(f'Expected one {label} line for {heading[2]}.')
             return matches[0]
-        advice = line('建议：')
+        advice = line('建议：', 'recommendation')
         match = re.fullmatch(r'(.+?) \| 机会优先分：(.+?) \| 匹配度：([0-9.]+)/5', advice)
         if match is None:
             raise ValueError(f'Unrecognized advice for {heading[2]}: {advice}')
         score = re.fullmatch(r'([0-9.]+)/100（非概率）', match[2])
         if score is None and match[2] != '不适用':
             raise ValueError(f'Unrecognized opportunity score: {match[2]}')
-        document = line('建议文书：')
+        document = line('建议文书：', 'document advice')
         code = re.match(r'([0-9]{2})\s', document)
         if code is None:
             raise ValueError(f'Missing document code for {heading[2]}.')
-        reason = line('原因：')
+        reason = line('原因：', 'reason')
         # Keep only the actual entry, excluding trailing section headers/footer.
         end = next(i for i, s in enumerate(lines) if s.startswith('建议文书：'))
         result.append(dict(rank=int(heading[1]), posting_id=posting_id(heading[2]),
