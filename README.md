@@ -42,6 +42,10 @@ Minimal Chrome extension extracted from the larger Enghacks project.
 4. Choose which job information to include. Select `Export jobs from the current page only` to skip all other result pages.
 5. Click `Download Current Filter as JSON`
 
+## Database import contract
+
+See [JSON export handoff](docs/json-export-contract.md) for the changes introduced by `157e7f2`, missing/empty-value semantics, and importer considerations. A [JSON Schema](docs/job-export.schema.json) and [synthetic examples](docs/examples/all-sections.json) are included for other processes.
+
 ## Tests
 
 Run `node --test content_helpers/bootstrapContent.test.js json-tool/splitter-core.test.js folder-debug-extension/content.test.js folder-debug-extension/folder-plan.test.js`.

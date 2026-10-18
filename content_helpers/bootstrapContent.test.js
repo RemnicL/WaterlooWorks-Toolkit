@@ -115,3 +115,36 @@ test("every script injection path loads the shared option definitions first", ()
   const options = fs.readFileSync(path.join(root, "options.js"), "utf8");
   assert.ok(options.includes('files: ["export-fields.js", "content_helpers/bootstrapContent.js", "content.js"]'));
 });
+
+test("database handoff schema and examples match the actual export projection", () => {
+  const { helpers, WWExportFields: fields } = loadHelpers();
+  const root = path.join(__dirname, "..");
+  const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+  const schema = readJson("docs/job-export.schema.json");
+  const properties = schema.$defs.job.properties;
+  const full = readJson("docs/examples/all-sections.json");
+  const partial = readJson("docs/examples/selected-sections.json");
+  const source = { ...full.jobs[0], hiring_history: {} };
+  for (const { field, group } of fields) {
+    if (group === "Hiring history") source.hiring_history[field] = source[field];
+  }
+  const options = { includeBasicInfo: true, ...Object.fromEntries(fields.map(({ option }) => [option, true])) };
+  const [exported] = helpers.selectExportFields([source], options);
+  assert.deepEqual(Object.keys(properties).sort(), Object.keys(exported).sort());
+  assert.equal(Object.keys(properties).length, 40);
+  assert.equal(Object.values(properties).filter((property) => property["x-change"] === "added").length, 22);
+  for (const { field, option, group } of fields) {
+    assert.equal(properties[field]["x-export-option"], option, field);
+    assert.equal(properties[field].$ref ?? properties[field].type,
+      group === "Hiring history" ? "#/$defs/hiringHistory" : field === "service_team" ? "#/$defs/serviceTeam" : "string", field);
+  }
+  assert.deepEqual(JSON.parse(JSON.stringify(exported)), full.jobs[0]);
+  const [selected] = helpers.selectExportFields([source], {
+    includeBasicInfo: true, includeJobSummary: true, includeServiceTeam: true
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(selected)), partial.jobs[0]);
+  for (const example of [full, partial]) {
+    assert.equal(example.total_jobs, example.jobs.length);
+    assert.deepEqual(example.posting_ids, example.jobs.map((job) => job.posting_id));
+  }
+});

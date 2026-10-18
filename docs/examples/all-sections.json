@@ -1,0 +1,76 @@
+{
+  "total_jobs": 1,
+  "posting_ids": [
+    "EXAMPLE-001"
+  ],
+  "jobs": [
+    {
+      "posting_id": "EXAMPLE-001",
+      "title": "Example Developer",
+      "organization": "Example Company",
+      "division": "Engineering",
+      "openings": "2",
+      "city": "Waterloo",
+      "level": "Junior, Intermediate",
+      "apps": "17",
+      "app_deadline": "Oct 21, 2026 9:00 AM",
+      "raw_text": "EXAMPLE-001 | Example Developer | Example Company | Engineering | 2 | Waterloo | Junior, Intermediate | 17 | Oct 21, 2026 9:00 AM",
+      "work_term": "2027 - Winter",
+      "job_type": "Co-op Main",
+      "job_title": "Example Developer",
+      "number_of_job_openings": "2",
+      "job_level": "Junior Intermediate",
+      "region": "ON - Waterloo",
+      "job_address_line_one": "100 Example Street",
+      "job_address_line_two": "",
+      "job_city": "Waterloo",
+      "job_province_state": "Ontario",
+      "job_postal_zip_code": "",
+      "job_country": "Canada",
+      "employment_location_arrangement": "Hybrid",
+      "work_term_duration": "4 month work term",
+      "special_job_requirements": "",
+      "job_summary": "Synthetic example; no real posting or personal data.",
+      "job_responsibilities": "Build and maintain example applications.",
+      "required_skills": "JavaScript SQL",
+      "compensation_and_benefits": "$25 to $30 per hour; see posting for details.",
+      "targeted_degrees_and_disciplines": "Targeted Clusters MATH - Computer Science ENG - Software Engineering",
+      "application_deadline": "Oct 21, 2026 9:00 AM",
+      "application_documents_required": "University of Waterloo Co-op Work History,Résumé,Grade Report",
+      "additional_application_information": "",
+      "application_method": "WaterlooWorks",
+      "company_organization": "Example Company",
+      "company_division": "Engineering",
+      "service_team": [
+        [
+          "EEM",
+          "Example staff member"
+        ]
+      ],
+      "hires_by_faculty": {
+        "title": "Hires by faculty",
+        "description": "Synthetic example",
+        "columns": [
+          "Faculty",
+          "Hires"
+        ],
+        "rows": [
+          [
+            "Math",
+            3
+          ]
+        ]
+      },
+      "hires_by_student_work_term_number": null,
+      "most_frequently_hired_programs": {
+        "tables": [],
+        "lists": [
+          "Computer Science"
+        ],
+        "text_lines": [
+          "Computer Science"
+        ]
+      }
+    }
+  ]
+}

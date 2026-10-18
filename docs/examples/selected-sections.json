@@ -1,0 +1,27 @@
+{
+  "total_jobs": 1,
+  "posting_ids": [
+    "EXAMPLE-001"
+  ],
+  "jobs": [
+    {
+      "posting_id": "EXAMPLE-001",
+      "title": "Example Developer",
+      "organization": "Example Company",
+      "division": "Engineering",
+      "openings": "2",
+      "city": "Waterloo",
+      "level": "Junior, Intermediate",
+      "apps": "17",
+      "app_deadline": "Oct 21, 2026 9:00 AM",
+      "raw_text": "EXAMPLE-001 | Example Developer | Example Company | Engineering | 2 | Waterloo | Junior, Intermediate | 17 | Oct 21, 2026 9:00 AM",
+      "job_summary": "Synthetic example; no real posting or personal data.",
+      "service_team": [
+        [
+          "EEM",
+          "Example staff member"
+        ]
+      ]
+    }
+  ]
+}
