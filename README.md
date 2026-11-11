@@ -49,6 +49,21 @@ The session lives in `.wwjobs/auth-state.json`, a local, unencrypted Playwright 
 
 Each `collect` run opens the Full-Cycle search, loads **All Jobs** when needed, and saves `jobs.json` and `report.json` in a timestamped directory under `.wwjobs/captures/`. Use `collect --interactive` to adjust the filters before collection. A complete capture returns exit code `0`, a partial capture returns `2`, and a failed capture returns `1`. Use the report to check list completeness and detail failures before importing the job export.
 
+## Sync captures into SQLite
+
+After signing in, run these commands from the repository root.
+
+```powershell
+python -m wwjobs sync --scope full-cycle-winter
+python -m wwjobs status --scope full-cycle-winter
+```
+
+`sync` collects a fresh export, saves the capture files, and imports the result into `job_database/applications.sqlite3`. It initializes a new database or upgrades a supported older schema. Pass `--db PATH` to both commands to use a different database. Use a stable scope name for each account, board, work term, and filter set. To set filters in the browser before syncing, add `--interactive`.
+
+`status` shows the latest attempt as `last_attempt` and the latest capture that updated the current list as `last_update`. A complete list with detail failures can update the list while preserving previously observed details. An incomplete list, a sign-in failure, or a rejected import is recorded separately and leaves the last update available. Run `login` again when the reported error is `login_required`.
+
+Sync exit codes are `0` for complete, `2` for partial, and `1` for failed. Use [current jobs](job_database/README.md#import-a-collector-capture-and-query-current-jobs) to query the resulting list.
+
 ## Validation
 
 Install Node.js and Python 3.10 or later, then run these commands from the repository root:
@@ -56,6 +71,7 @@ Install Node.js and Python 3.10 or later, then run these commands from the repos
 ```powershell
 node --test options.test.js content_helpers/bootstrapContent.test.js json-tool/splitter-core.test.js folder-debug-extension/content.test.js folder-debug-extension/folder-plan.test.js
 python -m unittest discover -s job_database -p "test_*.py" -v
+python -m unittest wwjobs.test_sync -v
 ```
 
 ## JSON Exporter

@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_DB = HERE / 'applications.sqlite3'
+SCHEMA_VERSION = 3
 STATES = ('unknown', 'planned', 'submitted', 'interview', 'offer', 'rejected', 'withdrawn', 'skipped')
 EXPORT_SCHEMA = json.loads((HERE / 'job-export.schema.json').read_text(encoding='utf-8-sig'))
 JOB_FIELDS = EXPORT_SCHEMA['$defs']['job']['properties']
@@ -43,7 +44,7 @@ def connect(path=DEFAULT_DB):
 
 def initialize(conn):
     version = conn.execute('PRAGMA user_version').fetchone()[0]
-    if version not in (0, 1, 2, 3):
+    if version not in (0, 1, 2, SCHEMA_VERSION):
         raise ValueError(f'Unsupported database version: {version}')
     migration = ''
     if version == 1:
@@ -254,7 +255,7 @@ def validate_capture_details(report, jobs):
     return confirmed
 
 
-def import_capture(conn, directory, name, scope):
+def import_capture(conn, directory, name, scope, *, import_error=None):
     directory = Path(directory)
     _, _, report_text = read_source(directory / 'report.json')
     report = json.loads(report_text)
@@ -269,7 +270,10 @@ def import_capture(conn, directory, name, scope):
     if not scope.strip():
         raise ValueError('A nonempty capture scope is required.')
 
-    publish = report['list_complete']
+    if import_error is not None:
+        report.update(status='failed', error='import_failed', message=import_error)
+        report_text = encode(report)
+    publish = report['list_complete'] and import_error is None
     batch = name if publish else None
     if publish:
         source = read_source(directory / 'jobs.json')
@@ -295,6 +299,30 @@ def import_capture(conn, directory, name, scope):
             conn.execute('INSERT INTO capture_runs (name, scope, observed_at, report_json, batch_name) '
                          'VALUES (?, ?, ?, ?, ?)', (name, scope, observed_at, report_text, batch))
     return {'name': name, 'scope': scope, 'status': report['status'], 'batch': batch}
+
+
+def capture_status(conn, scope):
+    attempt = conn.execute('''SELECT * FROM capture_runs WHERE scope = ?
+                              ORDER BY observed_at DESC LIMIT 1''', (scope,)).fetchone()
+    updated = latest_capture(conn, scope)
+
+    def summarize(row):
+        if row is None:
+            return None
+        report = json.loads(row['report_json'])
+        failures = report.get('detail_failures')
+        return {
+            'name': row['name'],
+            'observed_at': row['observed_at'],
+            'batch': row['batch_name'],
+            'status': report['status'],
+            'list_complete': report['list_complete'],
+            'detail_failures': len(failures) if isinstance(failures, dict) else 0,
+            'error': report.get('error') or report.get('list_issue'),
+            'message': report.get('message'),
+        }
+
+    return {'scope': scope, 'last_attempt': summarize(attempt), 'last_update': summarize(updated)}
 
 
 def confirmed_deadline(job, observed_fields, eastern):
@@ -680,7 +708,7 @@ def main():
                       'snapshot_jobs': conn.execute('SELECT COUNT(*) FROM job_snapshots WHERE batch_name = ?',
                                                     (args.name,)).fetchone()[0]}
         elif args.command in ('import-capture', 'current-jobs'):
-            if conn.execute('PRAGMA user_version').fetchone()[0] != 3:
+            if conn.execute('PRAGMA user_version').fetchone()[0] != SCHEMA_VERSION:
                 raise ValueError('Run init to upgrade the database before importing or querying captures.')
             if args.command == 'import-capture':
                 result = import_capture(conn, args.directory, args.name, args.scope)
