@@ -5,6 +5,7 @@ A collection of tools for exporting WaterlooWorks postings, managing a local SQL
 | Tool | Location | How to use |
 | --- | --- | --- |
 | JSON Exporter | Repository root | Load the root directory as an unpacked Chrome extension |
+| Full-Cycle Collector | [wwjobs](#full-cycle-collector) | Use Playwright to collect postings with a saved local session |
 | Job database | [job_database](job_database/README.md) | Python command-line tool using only the standard library |
 | Folder Importer | [folder-debug-extension](folder-debug-extension/README.md) | Load this directory as a separate Chrome extension |
 | JSON utilities | [json-tool](json-tool/README.md) | Open `json-tool/index.html` in a browser |
@@ -30,6 +31,23 @@ A collection of tools for exporting WaterlooWorks postings, managing a local SQL
 4. Select `folders.json` in Folder Importer and run the assignment.
 
 The database stores and queries records; it does not automatically screen jobs, generate rankings, or submit applications. This repository contains source code, tests, and examples. Actual databases, personal information, real job exports, and personal screening results are not distributed with the tools.
+
+## Full-Cycle Collector
+
+Run these commands from the repository root with a Windows Python installation that includes pip.
+
+```powershell
+python -m pip install -r wwjobs/requirements.txt
+python -m playwright install chromium
+python -m wwjobs login
+python -m wwjobs collect
+```
+
+Sign in manually in the browser opened by `login`. Once the WaterlooWorks Dashboard appears, press Enter in the terminal. The command opens the Full-Cycle Job Search page and loads **All Jobs** to verify access before saving the session. Run `login` again to renew an expired session or switch accounts. It starts a fresh browser session and replaces the previous state after the new login is verified.
+
+The session lives in `.wwjobs/auth-state.json`, a local, unencrypted Playwright snapshot containing session cookies and site storage. It survives a computer restart and remains usable until WaterlooWorks expires or revokes the session. Keep the file private. Git ignores it.
+
+Each `collect` run opens the Full-Cycle search, loads **All Jobs** when needed, and saves `jobs.json` and `report.json` in a timestamped directory under `.wwjobs/captures/`. Use `collect --interactive` to adjust the filters before collection. A complete capture returns exit code `0`, a partial capture returns `2`, and a failed capture returns `1`. Use the report to check list completeness and detail failures before importing the job export.
 
 ## Validation
 

@@ -6,3 +6,5 @@ __pycache__/
 *.sqlite3-shm
 /job_database/exports/
 /.wwjobs/
+auth-state.json
+.auth-state-*.tmp
