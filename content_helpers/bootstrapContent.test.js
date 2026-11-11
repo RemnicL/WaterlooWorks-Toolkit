@@ -8,11 +8,10 @@ function loadHelpers(globals = {}) {
   const context = vm.createContext(globals);
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../export-fields.js"), "utf8"), context);
   const source = fs.readFileSync(path.join(__dirname, "bootstrapContent.js"), "utf8")
-    .replace("  chrome.runtime.onMessage.addListener", `
+    .replace("  return exportFilteredJobs;", `
       globalThis.helpers = { selectExportFields, getExtraFieldsFromOverviewHtml, exportFilteredJobs };
-      return;
-      chrome.runtime.onMessage.addListener`);
-  vm.runInContext(`${source}\nbootstrapContentScript();`, context);
+      return exportFilteredJobs;`);
+  vm.runInContext(`${source}\ncreateJobsCollector();`, context);
   return context;
 }
 

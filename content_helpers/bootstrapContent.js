@@ -1,5 +1,4 @@
-function bootstrapContentScript() {
-  let isExportingJobs = false;
+function createJobsCollector() {
   const actionTokenCache = {};
 
   function cleanText(value) {
@@ -137,7 +136,6 @@ function bootstrapContentScript() {
       const firstId = currentRows[0]?.posting_id || "";
       if (!prevFirstId && currentRows.length > 0) return true;
       if (firstId && firstId !== prevFirstId) return true;
-      if (!hasNextPage()) return true;
     }
     return false;
   }
@@ -147,10 +145,11 @@ function bootstrapContentScript() {
       const rows = getPageRows();
       const firstId = rows[0]?.posting_id || "";
       const moved = goFirstPage();
-      if (!moved) break;
-      await waitPageChange(firstId);
+      if (!moved) return true;
+      if (!await waitPageChange(firstId)) return false;
       await waitMs(200);
     }
+    return false;
   }
 
   function extractActionTokenFromText(sourceText, functionName) {
@@ -208,8 +207,7 @@ function bootstrapContentScript() {
     return "";
   }
 
-  async function fetchOverviewHtml(postingId, overviewToken) {
-    if (!postingId || !overviewToken) return "";
+  async function fetchOverviewHtml(postingId, overviewToken, detailFailures) {
     const body = new URLSearchParams();
     body.set("action", overviewToken);
     body.set("postingId", String(postingId));
@@ -223,7 +221,14 @@ function bootstrapContentScript() {
       body: body.toString()
     });
 
-    if (!resp.ok) return "";
+    if (resp.url && new URL(resp.url).pathname.toLowerCase() === "/notloggedin.htm") {
+      detailFailures[postingId] = "login_required";
+      return "";
+    }
+    if (!resp.ok) {
+      detailFailures[postingId] = "http_" + resp.status;
+      return "";
+    }
     return resp.text();
   }
 
@@ -464,7 +469,7 @@ function bootstrapContentScript() {
     return found;
   }
 
-  function getExtraFieldsFromOverviewHtml(html) {
+  function getExtraFieldsFromOverviewHtml(html, observedFields = []) {
     const fields = globalThis.WWExportFields.filter(({ group }) => group !== "Hiring history");
     const out = Object.fromEntries(fields.map(({ field }) => [field, field === "service_team" ? [] : ""]));
     if (!html) return out;
@@ -484,6 +489,7 @@ function bootstrapContentScript() {
       const label = container.querySelector(".label");
       const field = fieldsByLabel.get(normalizeLabel(label?.textContent || ""));
       if (!field) continue;
+      observedFields.push(field);
       out[field] = cleanText(Array.from(container.childNodes)
         .filter((node) => node !== label)
         .map(readText).join(""));
@@ -491,6 +497,7 @@ function bootstrapContentScript() {
 
     for (const panel of doc.querySelectorAll(".panel")) {
       if (normalizeLabel(panel.querySelector("h4")?.textContent || "") !== "serviceteam") continue;
+      observedFields.push("service_team");
       out.service_team = Array.from(panel.querySelectorAll("tr"))
         .map((row) => Array.from(row.querySelectorAll("th,td")).map((cell) => cleanText(readText(cell))))
         .filter((row) => row.length > 0);
@@ -498,7 +505,12 @@ function bootstrapContentScript() {
     return out;
   }
 
-  async function attachExtraData(jobs, exportOptions) {
+  async function attachExtraData(jobs, exportOptions, report) {
+    const postingIds = Array.from(new Set(
+      jobs.map((job) => cleanText(job.posting_id)).filter(Boolean)
+    ));
+    if (!postingIds.length) return jobs;
+
     const includeHiringHistory = exportOptions.includeHiresByFaculty
       || exportOptions.includeHiresByWorkTerm
       || exportOptions.includeFrequentlyHiredPrograms;
@@ -507,11 +519,10 @@ function bootstrapContentScript() {
     const postingDataToken = includeHiringHistory ? await getActionToken("getPostingData") : "";
     const wtrReportToken = includeHiringHistory ? await getActionToken("getWorkTermRatingReportJson") : "";
 
-    if (!overviewToken) return jobs;
-
-    const postingIds = Array.from(new Set(
-      jobs.map((job) => cleanText(job.posting_id)).filter(Boolean)
-    ));
+    if (!overviewToken) {
+      for (const postingId of postingIds) report.detail_failures[postingId] = "overview_action_unavailable";
+      return jobs;
+    }
 
     const historyMap = {};
     const extraMap = {};
@@ -525,21 +536,27 @@ function bootstrapContentScript() {
 
         try {
           const [overviewHtml, postingData] = await Promise.all([
-            fetchOverviewHtml(postingId, overviewToken),
+            fetchOverviewHtml(postingId, overviewToken, report.detail_failures),
             postingDataToken ? fetchPostingJson(postingId, postingDataToken) : Promise.resolve(null)
           ]);
 
-          extraMap[postingId] = getExtraFieldsFromOverviewHtml(overviewHtml);
+          const observedFields = [];
+          extraMap[postingId] = getExtraFieldsFromOverviewHtml(overviewHtml, observedFields);
+          if (observedFields.length) {
+            report.detail_observed_fields[postingId] = Array.from(new Set(observedFields));
+          } else {
+            report.detail_failures[postingId] ??= "unrecognized_overview";
+          }
 
           const companyId = cleanText(postingData?.divId?.value ?? postingData?.divId ?? "");
-          const report = (wtrReportToken && companyId)
+          const wtrReport = (wtrReportToken && companyId)
             ? await fetchWtrJson(companyId, wtrReportToken)
             : null;
 
           if (includeHiringHistory) {
             const fromOverview = getHiringHistoryFromHtml(overviewHtml);
             const fromPostingData = getHiringHistoryFromPosting(postingData);
-            const fromWtrReport = getHiringHistoryFromWtr(report);
+            const fromWtrReport = getHiringHistoryFromWtr(wtrReport);
 
             historyMap[postingId] = {
               hires_by_faculty: fromWtrReport.hires_by_faculty
@@ -557,6 +574,7 @@ function bootstrapContentScript() {
             };
           }
         } catch (_e) {
+          report.detail_failures[postingId] ??= "detail_read_failed";
           extraMap[postingId] = getExtraFieldsFromOverviewHtml("");
           if (includeHiringHistory) {
             historyMap[postingId] = {
@@ -639,24 +657,34 @@ function bootstrapContentScript() {
   }
 
   async function exportFilteredJobs(exportOptions, maxPages = 100) {
-    const tableReady = await ensureJobsTable();
-    if (!tableReady) return { jobs: [], postingIds: [] };
-
+    const start = Date.now();
+    const report = {
+      list_complete: false,
+      pages_read: 0,
+      detail_failures: Object.create(null),
+      detail_observed_fields: Object.create(null)
+    };
     const exportCurrentPageOnly = exportOptions.includeCurrentPageOnly;
-    if (!exportCurrentPageOnly) {
-      await goToFirstPage(8);
-    }
-
     const all = [];
     const seen = new Set();
     const pageLimit = exportCurrentPageOnly ? 1 : maxPages;
+    if (!await ensureJobsTable()) {
+      report.list_issue = "jobs_table_unavailable";
+    } else if (!exportCurrentPageOnly && !await goToFirstPage(8)) {
+      report.list_issue = "first_page_unconfirmed";
+    }
 
-    for (let page = 1; page <= pageLimit; page += 1) {
-      const ok = await ensureJobsTable();
-      if (!ok) break;
-
+    for (let page = 1; !report.list_issue && page <= pageLimit; page += 1) {
+      if (!await ensureJobsTable()) {
+        report.list_issue = "jobs_table_unavailable";
+        break;
+      }
       const rows = getPageRows();
-      if (!rows.length) break;
+      if (!rows.length) {
+        report.list_issue = "empty_list_unconfirmed";
+        break;
+      }
+      report.pages_read += 1;
 
       for (const row of rows) {
         if (exportOptions.skipAppliedJobs) {
@@ -673,19 +701,38 @@ function bootstrapContentScript() {
       }
 
       const firstId = rows[0]?.posting_id || "";
-      if (page === pageLimit || !goNextPage()) break;
-      await waitPageChange(firstId);
+      if (exportCurrentPageOnly || !hasNextPage()) {
+        report.list_complete = true;
+        break;
+      }
+      if (page === pageLimit) {
+        report.list_issue = "page_limit_reached";
+        break;
+      }
+      if (!goNextPage() || !await waitPageChange(firstId)) {
+        report.list_issue = "next_page_unconfirmed";
+      }
     }
 
-    const enriched = await attachExtraData(all, exportOptions);
+    report.list_ms = Date.now() - start;
+    const detailStart = Date.now();
+    const enriched = await attachExtraData(all, exportOptions, report);
+    report.detail_ms = Date.now() - detailStart;
     return {
       jobs: selectExportFields(enriched, exportOptions),
       postingIds: Array.from(new Set(
         enriched.map((job) => cleanText(job.posting_id)).filter(Boolean)
-      ))
+      )),
+      report
     };
   }
 
+  return exportFilteredJobs;
+}
+
+function bootstrapContentScript() {
+  let isExportingJobs = false;
+  const exportFilteredJobs = createJobsCollector();
   chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.action === "EXPORT_FILTERED_JOBS") {
       (async () => {
@@ -716,3 +763,4 @@ function bootstrapContentScript() {
 }
 
 globalThis.bootstrapContentScript = bootstrapContentScript;
+globalThis.createJobsCollector = createJobsCollector;
