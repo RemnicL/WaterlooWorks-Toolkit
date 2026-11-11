@@ -18,6 +18,7 @@ ORIGIN = "https://waterlooworks.uwaterloo.ca"
 JOBS_PATH = "/myAccount/co-op/full/jobs.htm"
 JOBS_URL = ORIGIN + JOBS_PATH
 EXIT_CODES = {"complete": 0, "failed": 1, "partial": 2}
+SUCCESSFUL_CAPTURES_TO_KEEP = 5
 
 
 class CollectionError(Exception):
@@ -157,6 +158,47 @@ def collect(args, playwright):
     return output, report
 
 
+def clean_old_captures(conn, data_dir):
+    root = data_dir.resolve() / "captures"
+    if root.resolve() != root:
+        return 0
+    candidates = conn.execute("""
+        SELECT b.source_path, b.source_sha256, r.report_json
+        FROM capture_runs r JOIN batches b ON b.name = r.batch_name
+        WHERE json_extract(r.report_json, '$.status') = 'complete'
+        ORDER BY r.observed_at DESC
+    """).fetchall()
+    verified = set()
+    removed = 0
+    for row in candidates:
+        jobs = Path(row["source_path"])
+        directory = jobs.parent
+        if (jobs.name != "jobs.json" or directory.parent != root or directory in verified
+                or not re.fullmatch(r"\d{8}T\d{12}Z", directory.name)):
+            continue
+        report = directory / "report.json"
+        try:
+            if not directory.is_dir() or directory.resolve() != directory:
+                continue
+            if set(directory.iterdir()) != {jobs, report}:
+                continue
+            if any(not path.is_file() or path.resolve() != path for path in (jobs, report)):
+                continue
+            if (jobdb.read_source(jobs)[1] != row["source_sha256"]
+                    or jobdb.read_source(report)[2] != row["report_json"]):
+                continue
+            verified.add(directory)
+            if len(verified) <= SUCCESSFUL_CAPTURES_TO_KEEP:
+                continue
+            jobs.unlink()
+            report.unlink()
+            directory.rmdir()
+            removed += 1
+        except (OSError, ValueError) as error:
+            print(f"Could not clean capture {directory}: {error}", file=sys.stderr)
+    return removed
+
+
 def sync(args, playwright):
     args.db.parent.mkdir(parents=True, exist_ok=True)
     with closing(jobdb.connect(args.db)) as conn:
@@ -170,7 +212,8 @@ def sync(args, playwright):
             print(f"Capture: {output}", file=sys.stderr)
             jobdb.import_capture(conn, output, name, args.scope, import_error=str(error))
             raise
-    jobdb.write_json({**result, "capture_directory": str(output.resolve())})
+        removed = clean_old_captures(conn, args.data_dir) if report["status"] == "complete" else 0
+    jobdb.write_json({**result, "capture_directory": str(output.resolve()), "removed_captures": removed})
     return EXIT_CODES[report["status"]]
 
 

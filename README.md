@@ -64,6 +64,8 @@ python -m wwjobs status --scope full-cycle-winter
 
 Sync exit codes are `0` for complete, `2` for partial, and `1` for failed. Use [current jobs](job_database/README.md#import-a-collector-capture-and-query-current-jobs) to query the resulting list.
 
+After a complete sync, the collector keeps the five newest complete capture folders it can verify against the selected database. Older verified folders are removed from the capture directory. Their job data and reports remain in SQLite. Partial captures, failed runs, files that have changed since import, and folders with extra files remain available for manual review. The sync output reports the count in `removed_captures`.
+
 ## Validation
 
 Install Node.js and Python 3.10 or later, then run these commands from the repository root:
