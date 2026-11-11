@@ -37,6 +37,15 @@ CREATE TABLE IF NOT EXISTS job_snapshots (
     PRIMARY KEY (batch_name, posting_id)
 );
 
+CREATE TABLE IF NOT EXISTS capture_runs (
+    name TEXT PRIMARY KEY,
+    scope TEXT NOT NULL,
+    observed_at TEXT NOT NULL,
+    report_json TEXT NOT NULL CHECK (json_valid(report_json)),
+    batch_name TEXT UNIQUE REFERENCES batches(name),
+    UNIQUE (scope, observed_at)
+);
+
 CREATE TABLE IF NOT EXISTS selections (
     name TEXT PRIMARY KEY,
     batch_name TEXT REFERENCES batches(name),
@@ -120,4 +129,4 @@ FROM assessments a
 JOIN job_snapshots s USING (batch_name, posting_id)
 LEFT JOIN applications p USING (batch_name, posting_id);
 
-PRAGMA user_version = 2;
+PRAGMA user_version = 3;

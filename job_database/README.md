@@ -36,6 +36,24 @@ python job_database/jobdb.py export-jobs --batch enriched --raw --output enrichm
 
 The default export contains merged fields. `--raw` exports the original incoming data. Output paths must not already exist.
 
+## Import a collector capture and query current jobs
+
+Pass a directory produced by `python -m wwjobs collect`. Use a consistent scope name for the same account, job board, work term, and filters. Import complete captures for each scope in the order they were collected.
+
+```powershell
+python job_database/jobdb.py --db .wwjobs/check.sqlite3 init
+python job_database/jobdb.py --db .wwjobs/check.sqlite3 import-capture ".wwjobs/captures/your-capture-directory" --name capture-1 --scope full-cycle-winter
+python job_database/jobdb.py --db .wwjobs/check.sqlite3 current-jobs --scope full-cycle-winter
+```
+
+Replace the example capture path with the directory printed by the collector. Use a new batch name for each new capture. Repeating the same import with the same name is idempotent.
+
+Each import records `report.json`. A complete list creates an immutable batch and advances the current view for that scope. An incomplete list or failed attempt is recorded without advancing the view. With a complete list, detail failures preserve the last successful detail values. An explicitly observed empty detail can clear an old value. The original observation remains available through `show --batch`.
+
+`current-jobs` includes postings observed in the latest complete list whose deadlines are still open or unknown. It interprets the collector's Full-Cycle deadline format in Eastern time, as used by the [university's recruiting schedule](https://uwaterloo.ca/co-operative-education/important-dates). Conflicting or unparseable deadlines remain unknown. Add `--include-inactive` to see expired postings and previously known postings that did not appear in the latest list. Use `--as-of` with an offset-bearing timestamp to reproduce a query at a fixed time.
+
+If Python cannot find Eastern time zone data on Windows, install it with `python -m pip install tzdata`.
+
 ## Screening and folder classification
 
 ```powershell
@@ -84,4 +102,4 @@ python -m unittest discover -s job_database -p "test_*.py" -v
 python job_database/jobdb.py --help
 ```
 
-Tests use temporary databases and synthetic data. The current schema version is 2; run `init` on an existing v1 database to migrate it. Before backing up, close programs writing to the database and copy the SQLite file. Back up linked resumes and cover letters separately.
+Tests use temporary databases and synthetic data. The current schema version is 3. Run `init` on an existing v1 or v2 database to migrate it. Before backing up, close programs writing to the database and copy the SQLite file. Back up linked resumes and cover letters separately.

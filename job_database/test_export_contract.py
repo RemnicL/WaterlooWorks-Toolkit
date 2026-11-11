@@ -181,7 +181,7 @@ class ExportContractTests(unittest.TestCase):
             before = {table: [tuple(r) for r in old.execute('SELECT * FROM ' + table)]
                       for table in ('jobs', 'batches', 'job_snapshots', 'applications')}
             jobdb.initialize(old)
-            self.assertEqual(old.execute('PRAGMA user_version').fetchone()[0], 2)
+            self.assertEqual(old.execute('PRAGMA user_version').fetchone()[0], 3)
             for table, rows in before.items():
                 current = [tuple(r)[:len(rows[0])] for r in old.execute('SELECT * FROM ' + table)]
                 self.assertEqual(current, rows, table)

@@ -7,12 +7,17 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_DB = HERE / 'applications.sqlite3'
 STATES = ('unknown', 'planned', 'submitted', 'interview', 'offer', 'rejected', 'withdrawn', 'skipped')
 EXPORT_SCHEMA = json.loads((HERE / 'job-export.schema.json').read_text(encoding='utf-8-sig'))
 JOB_FIELDS = EXPORT_SCHEMA['$defs']['job']['properties']
+LIST_FIELDS = {'posting_id'} | {
+    field for field, spec in JOB_FIELDS.items()
+    if spec.get('x-export-option') == 'includeBasicInfo' or 'includeBasicInfo' in spec.get('x-export-requires', ())
+}
 
 
 def now():
@@ -38,7 +43,7 @@ def connect(path=DEFAULT_DB):
 
 def initialize(conn):
     version = conn.execute('PRAGMA user_version').fetchone()[0]
-    if version not in (0, 1, 2):
+    if version not in (0, 1, 2, 3):
         raise ValueError(f'Unsupported database version: {version}')
     migration = ''
     if version == 1:
@@ -163,12 +168,12 @@ def field_state(job, field):
     return 'value'
 
 
-def merge_job(previous, incoming):
+def merge_job(previous, incoming, observed_fields=()):
     merged = dict(previous)
     for field, value in incoming.items():
-        # The exporter cannot distinguish missing content from a failed scrape.
-        # Keep the observation in raw_json without interpreting it as deletion.
-        if field_state(incoming, field) in ('empty_string', 'empty_array', 'null') and field in previous:
+        # An empty export value only clears stored data when the report confirms it was read.
+        if (field not in observed_fields and field in previous
+                and field_state(incoming, field) in ('empty_string', 'empty_array', 'null')):
             continue
         merged[field] = value
     return merged
@@ -188,31 +193,157 @@ def import_jobs(conn, path, name, role='unknown', observed_at=None, base_batch=N
                 or prior['base_batch_name'] != base_batch):
             raise ValueError('Existing import metadata differs; use a new batch name.')
         return len(rows)
+    with conn:
+        insert_job_batch(conn, (source, digest, text), name, role, observed_at, base_batch, rows)
+    return len(rows)
+
+
+def insert_job_batch(conn, source, name, role, observed_at, base_batch, rows, detail_fields=None):
+    path, digest, text = source
     incoming = {job['posting_id']: job for job in rows}
     effective = {}
     if base_batch:
         effective = {row['posting_id']: json.loads(row['effective_json']) for row in conn.execute(
             'SELECT posting_id, effective_json FROM job_snapshots WHERE batch_name = ? ORDER BY rowid', (base_batch,))}
     for pid, job in incoming.items():
-        effective[pid] = merge_job(effective.get(pid, {}), job)
+        observed = ()
+        if detail_fields is not None:
+            observed = detail_fields.get(pid, set())
+            job = {field: value for field, value in job.items() if field in LIST_FIELDS or field in observed}
+        effective[pid] = merge_job(effective.get(pid, {}), job, observed)
     fields = ('title', 'organization', 'division', 'city', 'level', 'work_term_duration',
               'required_skills', 'job_responsibilities', 'job_summary', 'special_job_requirements')
-    with conn:
-        conn.execute('''INSERT INTO batches
+    conn.execute('''INSERT INTO batches
             (name, role, source_path, source_sha256, imported_at, observed_at, raw_json, base_batch_name)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                     (name, role, source, digest, now(), observed_at, text, base_batch))
-        for pid, job in effective.items():
-            conn.execute('INSERT OR IGNORE INTO jobs VALUES (?)', (pid,))
-            conn.execute('''INSERT INTO job_snapshots
+                 (name, role, path, digest, now(), observed_at, text, base_batch))
+    for pid, job in effective.items():
+        conn.execute('INSERT OR IGNORE INTO jobs VALUES (?)', (pid,))
+        conn.execute('''INSERT INTO job_snapshots
                 (batch_name, posting_id, title, organization, division, city, level,
                  work_term_duration, required_skills, job_responsibilities, job_summary,
                  special_job_requirements, apps, openings, deadline_text, raw_json, effective_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                         (name, pid, *(job.get(f) for f in fields), integer(job.get('apps')),
-                          integer(job.get('openings')), job.get('app_deadline'),
-                          encode(incoming.get(pid)), encode(job)))
-    return len(rows)
+                     (name, pid, *(job.get(f) for f in fields), integer(job.get('apps')),
+                      integer(job.get('openings')), job.get('app_deadline'),
+                      encode(incoming.get(pid)), encode(job)))
+
+
+def latest_capture(conn, scope):
+    return conn.execute('''SELECT * FROM capture_runs WHERE scope = ? AND batch_name IS NOT NULL
+                          ORDER BY observed_at DESC LIMIT 1''', (scope,)).fetchone()
+
+
+def validate_capture_details(report, jobs):
+    failures = report.get('detail_failures')
+    observations = report.get('detail_observed_fields')
+    if not isinstance(failures, dict) or not isinstance(observations, dict):
+        raise ValueError('The report must include detail failures and observed fields.')
+    if set(failures) | set(observations) != jobs.keys():
+        raise ValueError('Report detail IDs do not match jobs.json.')
+    if bool(failures) != (report['status'] == 'partial'):
+        raise ValueError('The report status does not match its detail failures.')
+    confirmed = {}
+    for pid, fields in observations.items():
+        if (not isinstance(fields, list) or not fields
+                or any(not isinstance(field, str) or field not in jobs[pid] or field in LIST_FIELDS
+                       for field in fields)):
+            raise ValueError(f'Invalid observed detail fields for posting {pid}.')
+        if pid not in failures:
+            confirmed[pid] = set(fields)
+    return confirmed
+
+
+def import_capture(conn, directory, name, scope):
+    directory = Path(directory)
+    _, _, report_text = read_source(directory / 'report.json')
+    report = json.loads(report_text)
+    if (not isinstance(report, dict) or type(report.get('list_complete')) is not bool
+            or report.get('status') not in ('complete', 'partial', 'failed')
+            or (report['status'] == 'complete' and not report['list_complete'])
+            or (report['status'] == 'failed' and report['list_complete'])
+            or not isinstance(report.get('started_at'), str)):
+        raise ValueError('Invalid capture report status, list completeness, or timestamp.')
+    observed_at = datetime.fromisoformat(timestamp(report['started_at'])).astimezone(timezone.utc)
+    observed_at = observed_at.isoformat(timespec='microseconds')
+    if not scope.strip():
+        raise ValueError('A nonempty capture scope is required.')
+
+    publish = report['list_complete']
+    batch = name if publish else None
+    if publish:
+        source = read_source(directory / 'jobs.json')
+        data = json.loads(source[2])
+        validate_export(data)
+        jobs = {job['posting_id']: job for job in data['jobs']}
+        detail_fields = validate_capture_details(report, jobs)
+
+    with conn:
+        conn.execute('BEGIN IMMEDIATE')
+        prior = conn.execute('SELECT * FROM capture_runs WHERE name = ?', (name,)).fetchone()
+        if prior is not None:
+            if (prior['scope'] != scope or json.loads(prior['report_json']) != report
+                    or (publish and require(conn, 'batches', name)['source_sha256'] != source[1])):
+                raise ValueError('This capture name already refers to another run.')
+        else:
+            if publish:
+                latest = latest_capture(conn, scope)
+                if latest and observed_at <= latest['observed_at']:
+                    raise ValueError('Import complete captures for each scope in observation order.')
+                insert_job_batch(conn, source, name, 'all', observed_at, latest['batch_name'] if latest else None,
+                                 data['jobs'], detail_fields)
+            conn.execute('INSERT INTO capture_runs (name, scope, observed_at, report_json, batch_name) '
+                         'VALUES (?, ?, ?, ?, ?)', (name, scope, observed_at, report_text, batch))
+    return {'name': name, 'scope': scope, 'status': report['status'], 'batch': batch}
+
+
+def confirmed_deadline(job, observed_fields, eastern):
+    values = [job.get('app_deadline')]
+    if 'application_deadline' in observed_fields:
+        values.append(job.get('application_deadline'))
+    dates = set()
+    for value in filter(None, values):
+        try:
+            local = datetime.strptime(value, '%b %d, %Y %I:%M %p')
+        except ValueError:
+            return None
+        aware = local.replace(tzinfo=eastern)
+        if aware.utcoffset() != aware.replace(fold=1).utcoffset():
+            return None  # The source did not specify an offset for the DST transition.
+        dates.add(aware.astimezone(timezone.utc))
+    return dates.pop() if len(dates) == 1 else None
+
+
+def current_jobs(conn, scope, include_inactive=False, as_of=None):
+    capture = latest_capture(conn, scope)
+    if capture is None:
+        raise ValueError(f'No complete capture list for scope {scope!r}.')
+    try:
+        eastern = ZoneInfo('America/Toronto')
+    except ZoneInfoNotFoundError as error:
+        raise ValueError('Eastern time zone data is unavailable. Install tzdata and try again.') from error
+    cutoff = datetime.fromisoformat(timestamp(as_of)) if as_of else datetime.now(timezone.utc)
+    report = json.loads(capture['report_json'])
+    result = []
+    rows = conn.execute('SELECT posting_id, raw_json, effective_json FROM job_snapshots '
+                        'WHERE batch_name = ? ORDER BY posting_id', (capture['batch_name'],))
+    for row in rows:
+        pid = row['posting_id']
+        raw = json.loads(row['raw_json'])
+        failed = pid in report['detail_failures']
+        fields = () if failed else report['detail_observed_fields'].get(pid, ())
+        deadline = confirmed_deadline(raw, fields, eastern) if raw else None
+        if raw is None:
+            availability = 'not_observed'
+        elif deadline is None:
+            availability = 'deadline_unknown'
+        else:
+            availability = 'expired' if deadline <= cutoff else 'current'
+        if include_inactive or availability in ('current', 'deadline_unknown'):
+            result.append({'availability': availability, 'deadline_at': deadline.isoformat() if deadline else None,
+                           'detail_failure': report['detail_failures'].get(pid),
+                           'job': json.loads(row['effective_json'])})
+    return {'scope': scope, 'batch': capture['batch_name'], 'observed_at': capture['observed_at'], 'jobs': result}
 
 
 def import_selection(conn, path, name, batch=None, kind='classification'):
@@ -497,6 +628,14 @@ def parser():
     c.add_argument('--role', choices=('all', 'major', 'candidate', 'unknown'), default='unknown')
     c.add_argument('--observed-at')
     c.add_argument('--base-batch', help='Preserve an existing batch and enrich a new one using these partial fields.')
+    c = commands.add_parser('import-capture')
+    c.add_argument('directory', type=Path)
+    c.add_argument('--name', required=True)
+    c.add_argument('--scope', required=True, help='Stable name for the account, board, term and filters.')
+    c = commands.add_parser('current-jobs')
+    c.add_argument('--scope', required=True)
+    c.add_argument('--include-inactive', action='store_true')
+    c.add_argument('--as-of', help='Timestamp with a UTC offset. Defaults to the current time.')
     c = commands.add_parser('import-selection')
     c.add_argument('file'); c.add_argument('--name', required=True); c.add_argument('--batch')
     c.add_argument('--kind', choices=('classification', 'major', 'screened'), default='classification')
@@ -540,6 +679,13 @@ def main():
             result = {'imported': import_jobs(conn, args.file, args.name, args.role, args.observed_at, args.base_batch),
                       'snapshot_jobs': conn.execute('SELECT COUNT(*) FROM job_snapshots WHERE batch_name = ?',
                                                     (args.name,)).fetchone()[0]}
+        elif args.command in ('import-capture', 'current-jobs'):
+            if conn.execute('PRAGMA user_version').fetchone()[0] != 3:
+                raise ValueError('Run init to upgrade the database before importing or querying captures.')
+            if args.command == 'import-capture':
+                result = import_capture(conn, args.directory, args.name, args.scope)
+            else:
+                result = current_jobs(conn, args.scope, args.include_inactive, args.as_of)
         elif args.command == 'import-selection':
             result = {'imported': import_selection(conn, args.file, args.name, args.batch, args.kind)}
         elif args.command == 'import-ranking':
